@@ -74,7 +74,24 @@ Bunlar zaten Fatih Bey'e ait, **dokunulmayacak**:
 ## FAZ 2 — Altyapıyı kur (geliştirme makinesi, ~30 dk)
 
 ### 2.1 Yeni sırları yaz
-- [ ] `.secrets.env` dosyasını yeni değerlerle güncelle:
+
+Sırların **hepsi değişmiyor**: Meta ve Telegram zaten işletmenin kendi hesapları, olduğu gibi taşınıyor. Elle kopyalarken satır atlamamak için şablonu betik üretiyor:
+
+```bash
+cd app && npm run teslim:env
+```
+
+Bu `.secrets.env.teslim` dosyasını yazar:
+- **Aynen taşınanlar** (8): Meta ve Telegram sırları, `MOTOR_SAGLAYICI`, `MOTOR_MODEL`
+- **Otomatik üretilenler** (2): `CRON_SECRET`, `EVOLUTION_WEBHOOK_SIR`
+- **Doldurulacaklar** (10): `<< DOLDUR >>` diye işaretli
+- **Bilerek yazılmayanlar**: OpenAI ve WhatsApp Cloud API değişkenleri — dosyanın sonunda sebebiyle listelenir
+
+Doldurma bitince `.secrets.env` olarak kaydedilir, sonra `npm run env` ile `app/.env.local` üretilir.
+
+⚠ Bu dosya sır içerir, `.gitignore`'da (`.secrets.env*`). Fatih Bey'in makinesine **elden** taşınır, depoya girmez.
+
+**Tam liste, ne olacağıyla:**
 
 | Değişken | Ne olacak |
 |---|---|
@@ -98,12 +115,8 @@ Bunlar zaten Fatih Bey'e ait, **dokunulmayacak**:
 | `OPENAI_API_KEY` | ❌ **SİL** — Anthropic'e geçildi, kullanılmıyor |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_WABA_ID` | ❌ **SİL** — Evolution'a geçildi, Cloud API kullanılmıyor |
 
-CRON_SECRET üretmek için:
-```bash
-node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
-```
-
-- [ ] Aynı değerleri `app/.env.local` dosyasına da yaz.
+- [ ] `.secrets.env.teslim` → `.secrets.env` olarak kaydet
+- [ ] `cd app && npm run env` — `app/.env.local` üretilir (elle yazmaya gerek yok)
 
 ### 2.2 Veritabanı şemasını kur
 ```bash

@@ -29,7 +29,8 @@
     "model:karsilastir": "tsx scripts/model-karsilastir.ts",
     "kampanya:dogrula": "tsx scripts/kampanya-dogrula.ts",
     "gecikme:olc": "tsx scripts/gecikme-olc.ts",
-    "kanal:dogrula": "tsx scripts/kanal-dogrula.ts"
+    "kanal:dogrula": "tsx scripts/kanal-dogrula.ts",
+    "teslim:env": "node scripts/teslim-env.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

@@ -1,6 +1,5 @@
 # ---- SIRLAR — asla depoya girmez ----
-.secrets.env
-.secrets.env.eski
+.secrets.env*
 .db-sifre.txt
 .env
 .env.local
