@@ -1,6 +1,6 @@
 # TESLIM.md — Eryaman Garaj sisteminin Fatih Bey'e devri
 
-Bu belge, sistemin Operiqo'nun hesaplarından **Fatih Altın'ın kendi hesaplarına** taşınmasının adım adım tarifidir. Sırayla uygulanır; sıra keyfi değil, her fazın çıktısı bir sonrakinin girdisi.
+Bu belge, sistemin geliştirme hesaplarından **Fatih Altın'ın kendi hesaplarına** taşınmasının adım adım tarifidir. Sırayla uygulanır; sıra keyfi değil, her fazın çıktısı bir sonrakinin girdisi.
 
 Hazırlanma tarihi: **14 Ağustos 2026**. Sözleşme teslim tarihi: **21 Ağustos 2026**.
 
@@ -13,28 +13,28 @@ Bu işin iki ayrı parçası var ve **aynı yerde yapılmazlar**:
 | Parça | Nerede | Neden |
 |---|---|---|
 | **Hesap sahipliği** (Supabase, Vercel, Anthropic, Railway) | Uzak masaüstünde, **Fatih Bey'in tarayıcısından** | Hesaplar onun e-postasıyla açılmalı, faturalar onun kartına gitmeli (Sözleşme Madde 6) |
-| **Kurulum, dağıtım, doğrulama** | **Operiqo'nun makinesinden** | Kod burada çalışıyor ve doğrulanmış durumda. Yeni bir makinede Node/npm/Playwright kurmak saatler alır ve hiçbir kazancı yok |
+| **Kurulum, dağıtım, doğrulama** | **geliştirme makinesinden** | Kod burada çalışıyor ve doğrulanmış durumda. Yeni bir makinede Node/npm/Playwright kurmak saatler alır ve hiçbir kazancı yok |
 | **Kaynak kod devri** | En sonda, sistem çalışır hâldeyken | Klasörün tamamı zip ya da özel git deposu olarak verilir |
 
 ⚠ **Fatih Bey'in makinesine kurulum yapmayın.** Teslim edilecek şey çalışan bir sistem ve onun hesaplarıdır; geliştirme ortamı değil. Bakım penceresinde (teslimden sonraki 1 ay) isterse ayrıca kurulur.
 
 ---
 
-## FAZ 0 — Bağlanmadan önce (Operiqo makinesinde, ~15 dk)
+## FAZ 0 — Bağlanmadan önce (geliştirme makinesinde, ~15 dk)
 
 - [ ] **Klasörün tam yedeğini al.** `C:\Users\hp\Desktop\eryaman` → harici bir kopyaya. Geri dönülemez adımlar var.
 - [ ] `.secrets.env` dosyasının bir kopyasını `.secrets.env.eski` olarak sakla — yeni anahtarlar yazılırken eskisi lazım olabilir.
-- [ ] **Şu an neyin çalıştığını doğrula:** `cd app && npm run bedava:dogrula` → 15/15 · 6/6 · 6/6 · 4/4 beklenir.
+- [ ] **Şu an neyin çalıştığını doğrula:** `cd app && npm run bedava:dogrula` → 15/15 · 6/6 · 6/6 · 4/4 · 13/13 beklenir.
 - [ ] Fatih Bey'e önceden söylenmesi gerekenler hazır olsun:
   - Aylık gider tablosu (aşağıda, "Fatih Bey'in aylık gideri")
   - Kredi kartı gerekecek: **Vercel, Anthropic, Railway** kayıt sırasında ister
-  - Supabase Frankfurt'a taşınacak, mevcut test verisi **taşınmayacak** (İsa kararı: geçmiş zaten WhatsApp/Instagram uygulamalarında duruyor)
+  - Supabase Frankfurt'a taşınacak, mevcut test verisi **taşınmayacak** (karar: geçmiş zaten WhatsApp/Instagram uygulamalarında duruyor)
 
 ---
 
 ## FAZ 1 — Hesaplar (uzak masaüstü, Fatih Bey'in tarayıcısı, ~40 dk)
 
-Hepsi **fatih.altin92@gmail.com** ile açılır. Şifreleri Fatih Bey belirlesin ve kendisi kaydetsin — Operiqo'da kalmasın.
+Hepsi **fatih.altin92@gmail.com** ile açılır. Şifreleri Fatih Bey belirlesin ve kendisi kaydetsin — geliştirici tarafında kalmasın.
 
 ### 1.1 Supabase (Frankfurt)
 - [ ] `supabase.com` → GitHub ya da e-posta ile kayıt
@@ -50,7 +50,7 @@ Hepsi **fatih.altin92@gmail.com** ile açılır. Şifreleri Fatih Bey belirlesin
 
 ### 1.2 Vercel
 - [ ] `vercel.com` → GitHub ile giriş (Fatih Bey'in GitHub'ı yoksa önce o açılır)
-- [ ] Plan seçimi: **Hobby yeterli** (İsa kararı, 14 Ağustos — Fatih Bey kendi kullanımı). Bilinen sınırlar aşağıda "Bilinen kısıtlar" bölümünde.
+- [ ] Plan seçimi: **Hobby yeterli** (14 Ağustos kararı — Fatih Bey kendi kullanımı). Bilinen sınırlar aşağıda "Bilinen kısıtlar" bölümünde.
 - [ ] Henüz proje oluşturma; FAZ 2'de CLI'dan yapılacak.
 
 ### 1.3 Anthropic (yapay zeka motoru)
@@ -71,7 +71,7 @@ Bunlar zaten Fatih Bey'e ait, **dokunulmayacak**:
 
 ---
 
-## FAZ 2 — Altyapıyı kur (Operiqo makinesi, ~30 dk)
+## FAZ 2 — Altyapıyı kur (geliştirme makinesi, ~30 dk)
 
 ### 2.1 Yeni sırları yaz
 - [ ] `.secrets.env` dosyasını yeni değerlerle güncelle:
@@ -163,7 +163,7 @@ Beklenen iki iş:
 
 ## FAZ 4 — Instagram (Meta, ~20 dk + doğrulama bekleme)
 
-Instagram tarafı **Meta'nın resmi API'sinde kalıyor** (İsa kararı, 14 Ağustos). Gerekçe: Instagram'da gayri resmi araç kullanmanın cezası kalıcı hesap kapatma, kaybı ise takipçi tabanı + DM geçmişi + aynı portföydeki reklam altyapısı. WhatsApp'taki gibi resmi bir "bağlı cihaz" mekanizması yok.
+Instagram tarafı **Meta'nın resmi API'sinde kalıyor** (14 Ağustos kararı). Gerekçe: Instagram'da gayri resmi araç kullanmanın cezası kalıcı hesap kapatma, kaybı ise takipçi tabanı + DM geçmişi + aynı portföydeki reklam altyapısı. WhatsApp'taki gibi resmi bir "bağlı cihaz" mekanizması yok.
 
 - [ ] **4.1 İşletme doğrulaması** (Fatih Bey yapar, Meta Business Suite)
   - Gerekli: vergi levhası **+** unvan ve adresi birlikte içeren ikinci bir belge
@@ -181,13 +181,13 @@ Instagram tarafı **Meta'nın resmi API'sinde kalıyor** (İsa kararı, 14 Ağus
 
 ---
 
-## FAZ 5 — Doğrulama (Operiqo makinesi, ~20 dk)
+## FAZ 5 — Doğrulama (geliştirme makinesi, ~20 dk)
 
 Sırayla koşulur, hepsi geçmeden "teslim oldu" denmez.
 
 | # | Komut | Beklenen | Bakiye |
 |---|---|---|---|
-| 1 | `npm run bedava:dogrula` | 15/15 · 6/6 · 6/6 · 4/4 | 🆓 |
+| 1 | `npm run bedava:dogrula` | 15/15 · 6/6 · 6/6 · 4/4 · 13/13 | 🆓 |
 | 2 | `npx tsc --noEmit` | çıktı yok | 🆓 |
 | 3 | `npm run cron:kur -- --durum` | 2 iş aktif, son çalışmalar `succeeded` | 🆓 |
 | 4 | `select public.eski_verileri_temizle(kuru => true);` | rapor döner, **hiçbir şey silmez** | 🆓 |
@@ -205,8 +205,8 @@ Sırayla koşulur, hepsi geçmeden "teslim oldu" denmez.
 ## FAZ 6 — Devir ve kapanış
 
 - [ ] **Kaynak kodu teslim et:** klasörün tamamı (`.secrets.env` **dahil**, artık onun sırları) zip ya da özel git deposu olarak
-- [ ] `.ig-profile`, `.wa-profile` ve `*-yedek` klasörlerini **çıkar** — bunlar Operiqo'nun tarayıcı oturumları, arşiv çekmek için kullanıldı, teslimde işi yok
-- [ ] **Operiqo'nun erişimlerini kapat:** kendi Supabase/Vercel/Anthropic hesaplarındaki eski projeleri sil, ödeme yöntemlerini kaldır
+- [ ] `.ig-profile`, `.wa-profile` ve `*-yedek` klasörlerini **çıkar** — bunlar geliştirme sırasında kullanılan tarayıcı oturumları, arşiv çekmek için kullanıldı, teslimde işi yok
+- [ ] **geliştirme erişimlerini kapat:** geliştirmede kullanılan Supabase/Vercel/Anthropic hesaplarındaki eski projeleri sil, ödeme yöntemlerini kaldır
 - [ ] **Eski Vercel projesini sil** (`eryaman-garaj-panel.vercel.app`) — hem isim serbest kalsın hem iki panel aynı anda çalışmasın
 - [ ] Fatih Bey'e panel eğitimi: gelen kutusu, devir, randevu onayı, **Bot eğitimi sekmesi**, ayarlar
 - [ ] Bakım penceresi başlangıcını yaz: teslimden itibaren **1 ay**, kapsam içi
@@ -270,7 +270,7 @@ select public.eski_verileri_temizle(kuru => true);
 | İş | Aciliyet | Not |
 |---|---|---|
 | Instagram webhook'unda mesaj kaydetme bağlantısı | 🔴 Live mode öncesi şart | `gelenMesajiCoz` → `gelenMesajiKaydet` TODO |
-| `channels/whatsapp.ts`'i Cloud API'den Evolution'a çevirme | 🔴 FAZ 3 öncesi şart | Bot, panel, takip merdiveni değişmez |
+| ~~`channels/whatsapp.ts`'i Evolution'a çevirme~~ | ✅ **BİTTİ** (14 Ağustos) | 13 vakalık bakiyesiz sınavı var (`npm run kanal:dogrula`). Cloud API sürümü `whatsapp-cloud.ts`'te saklandı |
 | Instagram jetonu 60 günlük — yenileme takibi | 🟡 Süre dolmadan | Şu an elle yenilenmesi gerekir |
 | `npm audit` — 3 yüksek uyarı | 🟡 Bakım penceresi | `next@16`'ya kırıcı yükseltme istiyor |
 | Doğrulama scriptleri Playwright'ı komşu projeden alıyor | 🟡 Bakım penceresi | Teslimde `devDependency` olarak eklenmeli |
@@ -283,4 +283,4 @@ select public.eski_verileri_temizle(kuru => true);
 1. **Eski Vercel projesini silmek** — silinince adres serbest kalır, başkası alabilir
 2. **Numara Meta Cloud API'ye taşımak** — WhatsApp Business uygulamasından düşer (Madde 7.3). **Evolution'a geçtiğimiz için bu adım YAPILMIYOR**
 3. **Eski Supabase projesini silmek** — mevcut test verisi gider. Yeni sistem çalıştığı doğrulanmadan silme
-4. **Operiqo hesaplarındaki ödeme yöntemini kaldırmak** — Fatih Bey'in kartı her serviste tanımlı olduğu doğrulandıktan sonra
+4. **geliştirme hesaplarındaki ödeme yöntemini kaldırmak** — Fatih Bey'in kartı her serviste tanımlı olduğu doğrulandıktan sonra
