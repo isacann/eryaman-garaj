@@ -76,16 +76,26 @@ function vercel(argumanlar, secenekler = {}) {
 }
 
 // 1. Oturum
+//
+// ⚠ `vercel whoami` takım kapsamındaki oturumlarda "Not authorized" dönebiliyor
+// (CLI 58.x, 14 Ağustos 2026'da yaşandı) — oturum sağlam olduğu hâlde. Bu yüzden
+// whoami tek başına kanıt sayılmıyor; başarısızsa `teams ls` ile ikinci kez
+// bakılıyor. Eskiden burada exit(1) vardı ve geçerli oturumla dağıtım yapılamıyordu.
 let kim
 try {
   kim = vercel(['whoami'], { input: '', timeout: 20000 }).trim()
 } catch {
-  console.error(
-    'Vercel CLI oturumu yok.\n' +
-      'Bir kez şunu çalıştır: vercel login\n' +
-      '(tarayıcıda doğrulama ister, sonra bu betik tek başına çalışır)',
-  )
-  process.exit(1)
+  try {
+    vercel(['teams', 'ls'], { input: '', timeout: 20000 })
+    kim = '(whoami cevap vermedi, takım listesi çalışıyor — oturum geçerli)'
+  } catch {
+    console.error(
+      'Vercel CLI oturumu yok.\n' +
+        'Bir kez şunu çalıştır: vercel login\n' +
+        '(tarayıcıda doğrulama ister, sonra bu betik tek başına çalışır)',
+    )
+    process.exit(1)
+  }
 }
 console.log(`✓ Vercel oturumu: ${kim}`)
 
@@ -94,8 +104,24 @@ console.log(`· proje bağlanıyor: ${PROJE}`)
 vercel(['link', '--yes', '--project', PROJE], { input: '', stdio: ['pipe', 'inherit', 'inherit'] })
 
 // 3. Ortam değişkenleri
+//
+// ⚠ NEXT_PUBLIC_PANEL_ADRES tavuk-yumurta sorunudur: adres ancak İLK dağıtımdan
+// sonra belli oluyor, ama betik onu dağıtımdan önce istiyordu ve exit(1) ile
+// duruyordu. Yeni kurulumda bu, ilk dağıtımı imkânsız kılıyor. Artık yalnızca
+// bu değişken eksikse uyarı verilip devam ediliyor; adres öğrenilince
+// .secrets.env'e yazılır ve betik TEKRAR çalıştırılır.
+const ILK_DAGITIMDA_OLMAYABILIR = new Set(['NEXT_PUBLIC_PANEL_ADRES'])
+
 for (const [ad, deger] of Object.entries(DEGISKENLER)) {
   if (!deger) {
+    if (ILK_DAGITIMDA_OLMAYABILIR.has(ad)) {
+      console.warn(
+        `! ${ad} henüz yok — ilk dağıtım için normal.\n` +
+          '  Dağıtım bitince adresi ../.secrets.env dosyasına yaz ve bu betiği TEKRAR çalıştır.\n' +
+          '  Yazılmazsa: bildirimlerdeki "Panelde aç" bağlantısı ve fiyat görselleri çalışmaz.',
+      )
+      continue
+    }
     console.error(`✗ ${ad} boş. ../.secrets.env dosyasına ekle.`)
     process.exit(1)
   }
