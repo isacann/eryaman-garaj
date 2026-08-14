@@ -1,13 +1,13 @@
 // Takip merdiveni. KAPSAM karar 6.
 //
-//   20. dakika → pencere içi, ÜCRETSİZ ("listemize bakabildiniz mi")
-//   6. saat    → pencere içi, ÜCRETSİZ
-//   25. saat   → tek onaylı şablon, ÜCRETLİ (settings.sablon_takip_aktif KAPALI gelir)
+//   3. saat  → ÜCRETSİZ ("listemize bakabildiniz mi")
+//   20. saat → ÜCRETSİZ
+//   25. saat → tek onaylı şablon, ÜCRETLİ (settings.sablon_takip_aktif KAPALI gelir)
 //
-// ⚠ Süreler 11 Ağustos 2026'da Fatih Bey'in isteğiyle değişti: eskiden
-// 3. saat → 20. saat → 25. saat idi. Gerekçe: fiyat listesi gönderildikten
-// kısa süre sonra "bakabildiniz mi" diye dönmek sahadaki satış pratiğine daha
-// yakın; 3 saat beklemek müşteriyi soğutuyor.
+// ⚠ Süreler iki kez değişti. 11 Ağustos'ta 3saat/20saat yerine 20dk/6saat
+// denendi (gerekçe: fiyat listesinden kısa süre sonra dönmek satış pratiğine
+// daha yakın). 14 Ağustos'ta Fatih Bey 20 dakikalık basamağı KALDIRDI ve
+// 3. saat / 20. saat düzenine dönüldü — 20 dakika sahada fazla ısrarcı kaçıyor.
 //
 // Kesme koşulları: müşteri cevap verdi, ilgilenmediğini söyledi, ekip devraldı,
 // randevu onaylandı ya da yazışma kapandı.
@@ -25,15 +25,16 @@ import 'server-only'
 import { gidenMesajGonder } from '@/lib/mesajlar'
 import { mesaiDisiMi, sonrakiYerelSaat, VARSAYILAN_BASLANGIC } from '@/lib/motor/saat'
 import { supabaseServis } from '@/lib/supabase/sunucu'
-import type { Json, TakipBasamagi } from '@/lib/db/types'
+import { hatirlatmaAni, randevuHatirlatmaMetni } from '@/lib/randevu'
+import { RANDEVU_HATIRLATMA, type Json, type TakipBasamagi } from '@/lib/db/types'
 
 /**
  * Müşterinin son mesajından itibaren kaçıncı DAKİKADA hangi basamak.
  * Birim dakika: ilk basamak saatten kısa (20 dk), saat cinsi yetmiyor.
  */
 export const MERDIVEN: { basamak: TakipBasamagi; dakika: number; ucretli: boolean }[] = [
-  { basamak: '20dk', dakika: 20, ucretli: false },
-  { basamak: '6saat', dakika: 6 * 60, ucretli: false },
+  { basamak: '3saat', dakika: 3 * 60, ucretli: false },
+  { basamak: '20saat', dakika: 20 * 60, ucretli: false },
   // Pencere 24. saatte kapanır; şablon ondan sonra gider.
   { basamak: 'sablon', dakika: 25 * 60, ucretli: true },
 ]
@@ -48,15 +49,15 @@ export const VARSAYILAN_METINLER: Record<TakipBasamagi, string> = {
   // Fatih Bey (11 Ağustos): "listemize vs. bakabildiniz mi şeklinde, bağlama uygun".
   // Fiyat/liste gönderilmemiş bir yazışmada bu cümle anlamsız kaçacağı için
   // metin gönderim anında bağlama göre seçiliyor (bkz. takipMetniSec).
-  '20dk': 'Fiyat listemize bakabildiniz mi? Aklınıza takılan bir şey olursa buradayım.',
-  '6saat':
+  '3saat': 'Fiyat listemize bakabildiniz mi? Aklınıza takılan bir şey olursa buradayım.',
+  '20saat':
     'Müsait olduğunuzda dönerseniz aracınızın bilgilerini alabilirim. Müsaitseniz buyrun gelin, burada daha net yardımcı olalım size.',
   sablon:
     'Merhabalar, aracınızla ilgili görüşmemiz yarım kalmıştı. Hâlâ ilgileniyorsanız yardımcı olmaktan memnuniyet duyarız.',
 }
 
 /**
- * 20. dakika metni bağlama uyarlanır (Fatih Bey: "bağlama uygun olacak").
+ * İlk basamağın metni bağlama uyarlanır (Fatih Bey: "bağlama uygun olacak").
  *
  * Yazışmada fiyat ya da liste görseli gittiyse "listemize bakabildiniz mi"
  * doğru cümle. Gitmediyse — müşteri henüz aracını yazmamışsa, konu adres/saat
@@ -67,7 +68,7 @@ export function takipMetniSec(
   metinler: Record<TakipBasamagi, string>,
   fiyatGonderildiMi: boolean,
 ): string {
-  if (basamak === '20dk' && !fiyatGonderildiMi) {
+  if (basamak === '3saat' && !fiyatGonderildiMi) {
     return 'Aklınıza takılan bir şey olursa buradayım, yardımcı olayım.'
   }
   return metinler[basamak]
@@ -93,8 +94,8 @@ async function ayarlariOku(): Promise<{
     takipAktif: data?.takip_aktif ?? true,
     sablonAktif: data?.sablon_takip_aktif ?? false,
     metinler: {
-      '20dk': ham['20dk']?.trim() || VARSAYILAN_METINLER['20dk'],
-      '6saat': ham['6saat']?.trim() || VARSAYILAN_METINLER['6saat'],
+      '3saat': ham['3saat']?.trim() || VARSAYILAN_METINLER['3saat'],
+      '20saat': ham['20saat']?.trim() || VARSAYILAN_METINLER['20saat'],
       sablon: ham.sablon?.trim() || VARSAYILAN_METINLER.sablon,
     },
   }
@@ -120,11 +121,16 @@ export async function takipPlanla(konusmaId: string, referans: Date = new Date()
 
   // Önce bu konuşmanın bekleyen takiplerini temizle: müşteri yeni yazdıysa
   // merdiven baştan başlar.
+  //
+  // ⚠ Randevu hatırlatması bu temizliğin DIŞINDA tutulur. O, müşterinin son
+  // mesajından değil randevu tarihinden sayılıyor; müşteri araya yazdı diye
+  // iptal edilirse randevusunu konuşan her müşteri hatırlatmasını kaybederdi.
   await db
     .from('followups')
     .update({ durum: 'iptal', meta: { sebep: 'yeniden-planlandi' } as Json })
     .eq('conversation_id', konusmaId)
     .eq('durum', 'beklemede')
+    .neq('basamak', RANDEVU_HATIRLATMA)
 
   if (!takipAktif) return
 
@@ -163,6 +169,59 @@ export async function takipleriIptalEt(konusmaId: string, sebep: string): Promis
     .update({ durum: 'iptal', meta: { sebep } as Json })
     .eq('conversation_id', konusmaId)
     .eq('durum', 'beklemede')
+    // Randevu hatırlatması merdivenin parçası değil: ekip devralsa bile
+    // müşteriye "yarın aracınızı getirecektiniz" demek doğru kalır.
+    .neq('basamak', RANDEVU_HATIRLATMA)
+}
+
+/**
+ * Randevu hatırlatmasını planlar (ya da randevu değiştiyse yeniden planlar).
+ *
+ * `randevuAt` null ise bekleyen hatırlatma iptal edilir: zaman netliğini
+ * kaybetmiş bir randevu için "yarın görüşüyoruz" demek yanlış olur.
+ *
+ * Hatırlatma randevudan 24 saat önce gider; o an mesai dışına düşerse sabah
+ * açılışa kaydırılır. Randevuya 24 saatten az kaldıysa hiç kurulmaz — müşteri
+ * bugün için randevu aldıysa ona "yarın" demek anlamsız.
+ */
+export async function randevuHatirlatmasiPlanla(
+  konusmaId: string,
+  randevuAt: string | null,
+  simdi: Date = new Date(),
+): Promise<void> {
+  const db = supabaseServis()
+
+  if (!randevuAt) {
+    await db
+      .from('followups')
+      .update({ durum: 'iptal', meta: { sebep: 'randevu-zamani-yok' } as Json })
+      .eq('conversation_id', konusmaId)
+      .eq('basamak', RANDEVU_HATIRLATMA)
+      .eq('durum', 'beklemede')
+    return
+  }
+
+  const randevu = new Date(randevuAt)
+  if (Number.isNaN(randevu.getTime())) return
+
+  // null = geleceğe düşen uygun bir an kalmamış (randevuya 2 saatten az var).
+  const hedef = hatirlatmaAni(randevu, simdi)
+  if (!hedef) return
+
+  const planlanan = mesaiyeKaydir(hedef)
+
+  await db.from('followups').upsert(
+    {
+      conversation_id: konusmaId,
+      basamak: RANDEVU_HATIRLATMA,
+      planlanan_at: planlanan.toISOString(),
+      durum: 'beklemede',
+      gonderildi_at: null,
+      // randevu_at gönderim anında tekrar okunuyor; buradaki kopya yalnızca iz.
+      meta: { randevu_at: randevu.toISOString() } as Json,
+    },
+    { onConflict: 'conversation_id,basamak' },
+  )
 }
 
 /**
@@ -185,6 +244,10 @@ export async function bekleyenTakipleriGonder(
     .select('id, conversation_id, basamak, planlanan_at, meta')
     .eq('durum', 'beklemede')
     .lte('planlanan_at', an.toISOString())
+    // Randevu hatırlatmasının kuralları farklı (müşteri yazsa da gider, ekip
+    // devralsa da gider); onu randevuHatirlatmalariniGonder işliyor. Burada
+    // elenmezse aşağıdaki "bilinmeyen basamak" koruması onu iptal ederdi.
+    .neq('basamak', RANDEVU_HATIRLATMA)
     .order('planlanan_at', { ascending: true })
     .limit(50)
 
@@ -280,6 +343,139 @@ export async function bekleyenTakipleriGonder(
         aktor: 'bot',
         tip: 'takip_gonderildi',
         payload: { konusma_id: satir.conversation_id, basamak } as Json,
+      })
+
+      gonderildi += 1
+    } catch (e) {
+      const hata = e instanceof Error ? e.message : 'bilinmeyen hata'
+      await db
+        .from('followups')
+        .update({ meta: { son_hata: hata } as Json })
+        .eq('id', satir.id)
+    }
+  }
+
+  return { gonderildi, iptal }
+}
+
+/**
+ * Zamanı gelmiş RANDEVU HATIRLATMALARINI gönderir. Cron'un işi.
+ *
+ * Takip merdiveninden ayrı tutulmasının sebebi kuralların ters olması:
+ *   · Merdiven müşteri yazınca iptal olur — hatırlatma OLMAZ, randevu duruyor.
+ *   · Merdiven ekip devralınca durur — hatırlatma DURMAZ, randevu yine geçerli.
+ *   · Merdiven müşterinin son mesajından sayılır — hatırlatma randevudan.
+ *
+ * Gönderim anında randevunun hâlâ geçerli olduğu doğrulanır: ekip panelden
+ * iptal etmiş ya da zamanı değiştirmiş olabilir.
+ */
+export async function randevuHatirlatmalariniGonder(
+  an: Date = new Date(),
+): Promise<{ gonderildi: number; iptal: number }> {
+  const db = supabaseServis()
+
+  const { data: kuyruk } = await db
+    .from('followups')
+    .select('id, conversation_id, planlanan_at, meta')
+    .eq('durum', 'beklemede')
+    .eq('basamak', RANDEVU_HATIRLATMA)
+    .lte('planlanan_at', an.toISOString())
+    .order('planlanan_at', { ascending: true })
+    .limit(50)
+
+  let gonderildi = 0
+  let iptal = 0
+
+  const iptalEt = async (id: string, sebep: string) => {
+    await db
+      .from('followups')
+      .update({ durum: 'iptal', meta: { sebep } as Json })
+      .eq('id', id)
+    iptal += 1
+  }
+
+  for (const satir of kuyruk ?? []) {
+    // Randevunun güncel hâli: ekip panelden iptal etmiş ya da saatini
+    // değiştirmiş olabilir. Kuyruktaki kopyaya değil, tabloya güveniyoruz.
+    const { data: randevuSatiri } = await db
+      .from('appointment_requests')
+      .select('randevu_at, durum')
+      .eq('conversation_id', satir.conversation_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!randevuSatiri?.randevu_at) {
+      await iptalEt(satir.id, 'randevu-yok')
+      continue
+    }
+    if (randevuSatiri.durum === 'iptal') {
+      await iptalEt(satir.id, 'randevu-iptal')
+      continue
+    }
+
+    const randevu = new Date(randevuSatiri.randevu_at)
+
+    // Randevu ileri alınmışsa hatırlatma erken kalmış demektir: gönderme,
+    // yeni zamanına göre yeniden planla.
+    const hedef = hatirlatmaAni(randevu, an)
+    if (hedef && hedef.getTime() > an.getTime()) {
+      await db
+        .from('followups')
+        .update({ planlanan_at: mesaiyeKaydir(hedef).toISOString() })
+        .eq('id', satir.id)
+      continue
+    }
+
+    // Randevu saati geçmişse hatırlatmanın anlamı kalmadı (cron gecikmiş ya da
+    // randevu geriye alınmış olabilir).
+    if (randevu.getTime() <= an.getTime()) {
+      await iptalEt(satir.id, 'randevu-gecti')
+      continue
+    }
+
+    // Konuşma ve kişi ayrı okunuyor: gömülü ilişki (contacts(ad)) üretilen
+    // tiplerde `never`e düşüyor ve durum alanı okunamıyor.
+    const { data: konusma } = await db
+      .from('conversations')
+      .select('id, durum, contact_id')
+      .eq('id', satir.conversation_id)
+      .maybeSingle()
+
+    // Kapalı yazışmaya hatırlatma gitmez. Devirdekine GİDER: ekip devraldı
+    // diye randevu ortadan kalkmıyor.
+    if (!konusma || konusma.durum === 'kapali') {
+      await iptalEt(satir.id, 'konusma-yok')
+      continue
+    }
+
+    const { data: kisi } = await db
+      .from('contacts')
+      .select('ad')
+      .eq('id', konusma.contact_id)
+      .maybeSingle()
+    const ad = kisi?.ad ?? null
+
+    try {
+      await gidenMesajGonder(
+        satir.conversation_id,
+        randevuHatirlatmaMetni(randevu, ad, an),
+        'bot',
+        { takip: RANDEVU_HATIRLATMA, randevu_at: randevu.toISOString() } as Json,
+      )
+
+      await db
+        .from('followups')
+        .update({ durum: 'gonderildi', gonderildi_at: an.toISOString() })
+        .eq('id', satir.id)
+
+      await db.from('activity_log').insert({
+        aktor: 'bot',
+        tip: 'randevu_hatirlatildi',
+        payload: {
+          konusma_id: satir.conversation_id,
+          randevu_at: randevu.toISOString(),
+        } as Json,
       })
 
       gonderildi += 1

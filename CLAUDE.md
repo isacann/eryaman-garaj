@@ -58,8 +58,10 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Sigorta / kasko / vergi / hukuk | Devir zorunlu, bot iddia üretmez |
 | Fotoğraf | Bot bakar, aracı okur, notu panele düşer, **fiyat kesmez** |
 | Fiyat listesi görseli | Bot gönderir. Metin fiyatıyla aynı kurala tabi: kapsam netleşmeden görsel yok |
-| Randevu | Bot saat konuşur ve **iletişim numarası ister**, talep panele düşer, ekip onaylar, teyit mesajını bot yazar |
-| Takip merdiveni | **20. dakika** → **6. saat** → 25. saat onaylı şablon (ücretli, panelde kapalı gelir) |
+| Randevu | Bot **net gün/saat sorar** ve iletişim numarası ister. Kayıt panele **onay beklemeden** düşer (14 Ağustos kararı); ekip zamanı düzeltir ya da iptal eder |
+| Randevu hatırlatması | Randevudan **24 saat önce**; o an geçmişse randevu günü **10:00**, o da geçmişse **2 saat önce**; randevuya 2 saatten az kaldıysa gönderilmez |
+| Instagram'da randevu | Müşteri **WhatsApp'a yönlendirilir** (0531 734 26 59). Sebep: Instagram'da 24 saat penceresi duruyor, hatırlatma her zaman gönderilemiyor. Bir kez söylenir, ısrar edilmez |
+| Takip merdiveni | **3. saat** → **20. saat** → 25. saat onaylı şablon (ücretli, panelde kapalı gelir). 20 dakikalık basamak 14 Ağustos'ta kaldırıldı — sahada fazla ısrarcı kaçıyordu |
 | Bildirim | Telegram. Randevu / devir / sıcak müşteri anlık; gece gelenler sabaha ertelenir |
 | Bot kimliği | "Eryaman Garaj" adına konuşur, robot olup olmadığı sorulursa saklamaz |
 | Hitap | Erkek → bey, kadın → hanım, **unisex ya da emin değilse hitap yok**, sadece ad |
@@ -126,8 +128,25 @@ Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bi
 `MOTOR_DUZELTME_LOG=1` ile hangi kuralın kaç kez tetiklendiği görülür.
 ⚠ **Bir kilit sık tetikleniyorsa önce "haklı mı" diye sor.** 12 Ağustos ölçümünde 81 turun 42'sinde düzeltme tetikleniyordu ve **%79'u tek kuralın yanlış alarmıydı**.
 
+### Randevu ve hatırlatma
+Bot gün/saat konuştuğunda `randevu_talebi` (müşterinin ifadesi) ve `randevu_zaman` (ISO karşılığı) alanlarını doldurur. Kayıt `appointment_requests`'e **`durum='onaylandi'`** olarak düşer — ekip onayı beklenmez.
+
+⚠ **`randevu_zaman` kod kilidiyle doğrulanır** (`randevuZamaniCoz`): geçmiş tarih, 6 aydan uzak tarih (modelin yıl karıştırması), olmayan gün (31 Şubat) ve biçimsiz metin reddedilir. Reddedilirse talep yine panele düşer ama hatırlatma kurulmaz — yanlış güne mesaj göndermektense hiç göndermemek yeğdir.
+
+Hatırlatma `followups` tablosunda `basamak='randevu-hatirlatma'` olarak taşınır ama **takip merdiveninin parçası değildir**; kuralları terstir:
+
+| | Merdiven | Randevu hatırlatması |
+|---|---|---|
+| Sayaç | Müşterinin son mesajı | Randevu tarihi |
+| Müşteri yazınca | İptal | Devam eder |
+| Ekip devralınca | Durur | Devam eder |
+
+⚠ **Katı 24 saat kuralı yetmiyordu.** Sahadaki en sık cümle "yarın getireyim" ve o randevu genellikle 24 saatten yakın; katı kuralla bu randevuların neredeyse hepsi hatırlatmasız kalıyordu. `hatirlatmaAni` üç kademeli: 24 saat önce → randevu günü 10:00 → 2 saat önce. Metin de buna göre "yarın"/"bugün" diye değişir (`ayniGunMu`), yoksa aynı gün giden mesaj yanlış gün söylerdi.
+
+Doğrulama: `npm run randevu:dogrula` (🆓 18 vaka) · `npm run randevu:uctan-uca` (💰 ~$0,05, gerçek `botCevapla` yolundan)
+
 ### Zamanlanmış işler
-`app/src/app/api/cron/route.ts` — tek rota, dört iş: sabah kuyruğu → 15 dk devir kuralı → takip merdiveni → bildirim kuyruğu.
+`app/src/app/api/cron/route.ts` — tek rota, beş iş: sabah kuyruğu → 15 dk devir kuralı → takip merdiveni → randevu hatırlatması → bildirim kuyruğu.
 
 ⚠ **Tetikleyici Vercel Cron değil, Supabase pg_cron.** Vercel Hobby'de cron günde yalnızca bir kez çalışabiliyor. İki pg_cron işi var:
 
@@ -177,6 +196,7 @@ cd app && npm run bedava:dogrula
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
 | `kampanya:dogrula` (4 vaka) | Kampanya yanlış müşteriye sızıyor mu |
 | `kanal:dogrula` (13 vaka) | Webhook çözücüsü — özellikle `fromMe` sonsuz döngü koruması |
+| `randevu:dogrula` (18 vaka) | Randevu tarihi çözücüsü + hatırlatma anı ve metni |
 
 Ayrıca: `npx tsc --noEmit`, `npm run zamanlanmis:dogrula` (⚠ yerel dev sunucu şart), `node scripts/konsol-dogrula.mjs <e-posta> <şifre>`.
 

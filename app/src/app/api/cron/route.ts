@@ -8,11 +8,12 @@
 // rota aynen kullanılabilir; kodda değişiklik gerekmez.
 // Kurulum: node scripts/cron-kur.mjs
 //
-// Dört iş, bu sırayla:
+// Beş iş, bu sırayla:
 //   1. Sabah kuyruğu   — gece gelip cevapsız kalan yazışmaların asıl cevabı (karar 5)
 //   2. 15 dk kuralı    — devir bayrağı kalkmış ama ekip yazmamışsa hatırlatma (karar 4)
 //   3. Takip merdiveni — 3. saat / 20. saat / şablon (karar 6)
-//   4. Bildirim kuyruğu— ertelenmiş ve gönderilememiş Telegram bildirimleri (Bölüm 5)
+//   4. Randevu hatırlatması — randevudan 24 saat önce (14 Ağustos, Fatih Bey)
+//   5. Bildirim kuyruğu— ertelenmiş ve gönderilememiş Telegram bildirimleri (Bölüm 5)
 //
 // Sıra tesadüf değil: önce müşteriye gidecek mesajlar üretilir, en sonda
 // Fatih Bey'e haber verilir; böylece bildirim geldiğinde panelde her şey hazır.
@@ -27,7 +28,7 @@ import { bekleyenBildirimleriGonder, sistemUyarisi } from '@/lib/bildirim'
 import { mesaiKuyrugunuIslet } from '@/lib/bot'
 import { devirHatirlatmalariniIslet } from '@/lib/devir'
 import { cronSirri } from '@/lib/env'
-import { bekleyenTakipleriGonder } from '@/lib/takip'
+import { bekleyenTakipleriGonder, randevuHatirlatmalariniGonder } from '@/lib/takip'
 
 // Zamanlanmış iş: önbelleğe alınmamalı, her çağrıda gerçekten çalışmalı.
 export const dynamic = 'force-dynamic'
@@ -67,6 +68,12 @@ async function isleriCalistir() {
     sonuc.takip = await bekleyenTakipleriGonder(an)
   } catch (e) {
     sonuc.takipHata = e instanceof Error ? e.message : 'bilinmeyen hata'
+  }
+
+  try {
+    sonuc.randevuHatirlatma = await randevuHatirlatmalariniGonder(an)
+  } catch (e) {
+    sonuc.randevuHatirlatmaHata = e instanceof Error ? e.message : 'bilinmeyen hata'
   }
 
   try {

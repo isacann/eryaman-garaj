@@ -120,6 +120,7 @@ create table if not exists public.appointment_requests (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.conversations(id) on delete cascade,
   istenen_zaman_metin text,                  -- müşterinin kendi kelimeleriyle: "yarın öğleden sonra"
+  randevu_at timestamptz,                    -- çözümlenmiş kesin an; hatırlatma buna göre kurulur
   arac text,                                 -- marka/model/yıl
   hizmet text,                               -- ppf | cam filmi | detaylı bakım vb. serbest metin
   durum text not null default 'bekliyor',    -- bekliyor | onaylandi | iptal
@@ -128,8 +129,20 @@ create table if not exists public.appointment_requests (
   updated_at timestamptz not null default now()
 );
 
-comment on column public.appointment_requests.durum is 'bekliyor | onaylandi | iptal';
-comment on column public.appointment_requests.istenen_zaman_metin is 'Serbest metin. Takvim kaydı DEĞİL, ekip teyit eder.';
+-- 14 Ağustos 2026, Fatih Bey isteği: bot net gün/saat sorsun, randevu ekip
+-- onayını BEKLEMEDEN panele düşsün, randevudan önce müşteriye hatırlatma gitsin.
+-- Bunun için serbest metnin yanına çözümlenmiş bir zaman damgası gerekiyor:
+-- "haftaya salı" üzerine zamanlama kurulamaz.
+alter table public.appointment_requests add column if not exists randevu_at timestamptz;
+
+comment on column public.appointment_requests.durum is 'bekliyor | onaylandi | iptal. Bot artık doğrudan onaylandi yazıyor (14 Ağustos kararı: ekip onayı beklenmiyor); ekip panelden iptal edebilir ya da zamanı düzeltebilir.';
+comment on column public.appointment_requests.istenen_zaman_metin is 'Müşterinin kendi ifadesi ("yarın öğleden sonra"). Kesin an randevu_at kolonunda.';
+comment on column public.appointment_requests.randevu_at is 'Botun çözümlediği kesin an. NULL ise zaman netleşmemiştir; hatırlatma kurulmaz, talep yine de panele düşer.';
+
+-- Hatırlatma kuyruğu bu indeksi kullanıyor: yaklaşan ve iptal edilmemiş randevular.
+create index if not exists appointment_requests_randevu_at_idx
+  on public.appointment_requests (randevu_at)
+  where randevu_at is not null;
 
 create index if not exists appointment_requests_durum_idx
   on public.appointment_requests (durum, created_at desc);
@@ -148,7 +161,7 @@ create trigger appointment_requests_updated_at before update on public.appointme
 create table if not exists public.followups (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.conversations(id) on delete cascade,
-  basamak text not null,                     -- 20dk | 6saat | sablon
+  basamak text not null,                     -- 3saat | 20saat | sablon
   planlanan_at timestamptz not null,
   durum text not null default 'beklemede',   -- beklemede | gonderildi | iptal
   gonderildi_at timestamptz,
@@ -157,7 +170,7 @@ create table if not exists public.followups (
   updated_at timestamptz not null default now()
 );
 
-comment on column public.followups.basamak is '20dk | 6saat (ikisi de pencere içi, ücretsiz) | sablon (25. saat, onaylı şablon, ücretli). Süreler 11 Ağustos 2026 Fatih Bey kararıyla değişti.';
+comment on column public.followups.basamak is '3saat | 20saat (ikisi de ücretsiz) | sablon (25. saat, onaylı şablon, ücretli) | randevu-hatirlatma (merdivenin parçası DEĞİL, randevu tarihinden sayılır). Süreler 14 Ağustos 2026 Fatih Bey kararıyla güncellendi.';
 comment on column public.followups.durum is 'beklemede | gonderildi | iptal. Müşteri cevap verdiyse, ilgilenmiyorum dediyse ya da ekip devraldıysa iptal edilir.';
 
 create unique index if not exists followups_conversation_basamak_key

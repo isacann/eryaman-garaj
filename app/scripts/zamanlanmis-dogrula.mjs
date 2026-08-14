@@ -116,7 +116,7 @@ const { data: takipler } = await db
   .eq('conversation_id', konusmaId)
 
 kontrol(
-  'takip merdiveni kuruldu (20dk + 6saat + sablon)',
+  'takip merdiveni kuruldu (3saat + 20saat + sablon)',
   (takipler?.length ?? 0) === 3,
   `bulunan: ${(takipler ?? []).map((t) => t.basamak).join(', ') || 'yok'}`,
 )
@@ -129,7 +129,7 @@ await db
   .from('followups')
   .update({ planlanan_at: gecmis })
   .eq('conversation_id', konusmaId)
-  .eq('basamak', '20dk')
+  .eq('basamak', '3saat')
 
 const cron2 = await cronCalistir()
 kontrol('cron takip işini çalıştırdı', !cron2.takipHata, JSON.stringify(cron2.takipHata ?? cron2.takip))
@@ -138,7 +138,7 @@ const { data: ucSaat } = await db
   .from('followups')
   .select('durum, gonderildi_at')
   .eq('conversation_id', konusmaId)
-  .eq('basamak', '20dk')
+  .eq('basamak', '3saat')
   .maybeSingle()
 
 kontrol(
@@ -228,7 +228,7 @@ await db
   .from('followups')
   .update({ durum: 'beklemede', planlanan_at: gecmis })
   .eq('conversation_id', konusmaId)
-  .eq('basamak', '6saat')
+  .eq('basamak', '20saat')
 
 // Müşteri yeni mesaj yazıyor.
 await mockMesaj('Peki taksit yapıyor musunuz?')
@@ -240,11 +240,11 @@ const { data: yirmiSaat } = await db
   .from('followups')
   .select('durum, meta')
   .eq('conversation_id', konusmaId)
-  .eq('basamak', '6saat')
+  .eq('basamak', '20saat')
   .maybeSingle()
 
 kontrol(
-  '6. saat takibi müşteri yazdığı için gönderilmedi',
+  '20. saat takibi müşteri yazdığı için gönderilmedi',
   yirmiSaat?.durum !== 'gonderildi',
   `durum: ${yirmiSaat?.durum}, sebep: ${yirmiSaat?.meta?.sebep}`,
 )

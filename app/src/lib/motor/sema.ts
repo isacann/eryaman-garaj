@@ -92,6 +92,15 @@ export const YANIT_SEMASI: JsonSema = {
       description:
         'Müşteri gün/saat söylediyse kendi kelimeleriyle, ör. "cumartesi öğleden sonra". Yoksa boş metin.',
     },
+    randevu_zaman: {
+      type: 'string',
+      description:
+        'randevu_talebi doluysa onun KESİN karşılığı: "YYYY-AA-GGTSS:DD" (Türkiye saati). ' +
+        'Bugünün tarihi promptun sonunda yazılı, göreli ifadeleri ona göre çevir ' +
+        '("yarın 14:00", "cumartesi sabah" → o günün tarihi). Saat söylenmediyse ' +
+        'çalışma saatleri içinde makul bir saat yaz (sabah→10:00, öğleden sonra→14:00, akşam→18:00). ' +
+        'Gün belirsizse ("haftaya", "birkaç güne") boş metin bırak — uydurma.',
+    },
     gorsel_notu: {
       type: 'string',
       description:
@@ -130,6 +139,7 @@ export const YANIT_SEMASI: JsonSema = {
     'devir_gerekli_mi',
     'devir_sebebi',
     'randevu_talebi',
+    'randevu_zaman',
     'gorsel_notu',
     'fiyat_gorseli',
     'fiyat_listesi',
@@ -167,6 +177,43 @@ function metin(deger: unknown): string {
 function bosaNull(deger: unknown): string | null {
   const m = metin(deger)
   return m === '' ? null : m
+}
+
+/**
+ * Modelin yazdığı randevu zamanını ISO'ya çevirir — ya da reddeder.
+ *
+ * ⚠ KOD KİLİDİ. Bu alanın üzerine hatırlatma zamanlanıyor ve müşteriye mesaj
+ * gidiyor; model burada uydurursa yanlış güne "yarın aracınızı getirecektiniz"
+ * yazılır. O yüzden üç şey doğrulanır ve şüphede null dönülür:
+ *
+ *   1. Biçim tutuyor mu (YYYY-AA-GGTSS:DD)
+ *   2. Geçmişte mi — geçmiş randevuya hatırlatma kurulamaz
+ *   3. Makul aralıkta mı — 6 aydan uzağı müşterinin dediği değil, modelin
+ *      yıl/ay karıştırmasıdır (ör. 2027 yazması)
+ *
+ * Saat dilimi: Türkiye sabit UTC+3, yaz saati uygulaması yok. Model yerel saat
+ * yazıyor, burada +03:00 varsayılarak mutlak ana çevriliyor.
+ */
+export function randevuZamaniCoz(deger: unknown, simdi: Date = new Date()): string | null {
+  const ham = metin(deger)
+  if (ham === '') return null
+
+  const kalip = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(ham)
+  if (!kalip) return null
+
+  const [, yil, ay, gun, saat, dakika] = kalip
+  const an = new Date(`${yil}-${ay}-${gun}T${saat}:${dakika}:00+03:00`)
+  if (Number.isNaN(an.getTime())) return null
+
+  // Gün/ay taşması sessizce kaymış olabilir (ör. 2026-02-31 → 3 Mart).
+  // Böyle bir tarih müşterinin söylediği gün değildir.
+  if (an.toISOString().slice(8, 10) !== gun && an.getUTCDate() !== Number(gun)) return null
+
+  const fark = an.getTime() - simdi.getTime()
+  if (fark <= 0) return null // geçmiş ya da şu an
+  if (fark > 183 * 24 * 60 * 60_000) return null // ~6 aydan uzak
+
+  return an.toISOString()
 }
 
 /**
@@ -218,6 +265,9 @@ export function ciktiyiCoz(ham: unknown): YapiliCikti {
     devir_gerekli_mi: n.devir_gerekli_mi === true,
     devir_sebebi: n.devir_gerekli_mi === true ? devirSebebi : null,
     randevu_talebi: bosaNull(n.randevu_talebi),
+    // Zaman ancak talep varsa anlamlı: talep yokken gelen tarih modelin
+    // kendi kendine kurduğu bir randevudur, kaydedilmez.
+    randevu_zaman: bosaNull(n.randevu_talebi) ? randevuZamaniCoz(n.randevu_zaman) : null,
     gorsel_notu: bosaNull(n.gorsel_notu),
     fiyat_gorseli: fiyatGorseli,
     fiyat_listesi: fiyatListesi,

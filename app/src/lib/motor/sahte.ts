@@ -81,6 +81,7 @@ export function sahteSaglayici(modelEzme?: string): Saglayici {
           devir_gerekli_mi: false,
           devir_sebebi: null,
           randevu_talebi: null,
+          randevu_zaman: null,
           gorsel_notu: null,
           fiyat_gorseli: null,
           fiyat_listesi: null,
@@ -110,6 +111,7 @@ export function sahteSaglayici(modelEzme?: string): Saglayici {
         devir_gerekli_mi: false,
         devir_sebebi: null,
         randevu_talebi: null,
+        randevu_zaman: null,
         gorsel_notu: gorseller.length > 0 ? 'Fotoğraf alındı (sahte sağlayıcı analiz etmez).' : null,
         guven: 0.5,
       }

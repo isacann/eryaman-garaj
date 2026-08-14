@@ -89,6 +89,13 @@ async function main() {
         `      · niyet=${y.niyet} arac=${y.arac ?? '-'} kapsam=${y.kapsam ?? '-'} ` +
           `fiyat_verilebilir=${y.fiyat_verilebilir_mi} devir=${y.devir_gerekli_mi} guven=${y.guven}`,
       )
+      // Randevu alanları ayrı satırda: hatırlatma bunlara bağlı, koşarken
+      // dolup dolmadığı görünmezse özellik sessizce bozulabilir.
+      if (y.randevu_talebi || y.randevu_zaman) {
+        console.log(
+          `      📅 randevu_talebi="${y.randevu_talebi ?? '-'}" randevu_zaman=${y.randevu_zaman ?? 'BOŞ'}`,
+        )
+      }
       if (bayraklar.length > 0) {
         for (const b of bayraklar) console.log(`      🚩 ${b.tur}: ${b.aciklama}`)
       }

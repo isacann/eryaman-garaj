@@ -67,6 +67,12 @@ export type YapiliCikti = {
   devir_sebebi: DevirSebebi | null
   /** Müşterinin söylediği gün/saat, kendi kelimeleriyle. Yoksa null. */
   randevu_talebi: string | null
+  /**
+   * randevu_talebi'nin çözümlenmiş kesin karşılığı (ISO, UTC). Hatırlatma buna
+   * göre kurulur. Model uydurursa `randevuZamaniCoz` reddeder ve null kalır:
+   * o zaman talep yine panele düşer ama hatırlatma zamanlanmaz.
+   */
+  randevu_zaman: string | null
   /** Fotoğraf geldiyse araca dair gözlem. Fiyat bilgisi İÇERMEZ. */
   gorsel_notu: string | null
   /**

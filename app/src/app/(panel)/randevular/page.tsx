@@ -2,18 +2,35 @@ import Link from 'next/link'
 import { randevulariGetir } from '@/lib/db/sorgular'
 import { kisiAdi, tamZaman } from '@/lib/bicim'
 import { KanalRozeti, RandevuRozeti } from '@/components/Rozet'
+import { RandevuZamani } from './RandevuZamani'
 
 export const dynamic = 'force-dynamic'
+
+/** Randevu anını Türkiye saatiyle okunur yazar. */
+function randevuBicim(iso: string | null): string {
+  if (!iso) return 'Zaman netleşmedi'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'Zaman netleşmedi'
+  return new Intl.DateTimeFormat('tr-TR', {
+    timeZone: 'Europe/Istanbul',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d)
+}
 
 export default async function RandevularSayfasi() {
   const satirlar = await randevulariGetir()
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-8 md:px-10 md:py-10">
-      <h1 className="text-[15px] font-semibold">Randevu talepleri</h1>
+      <h1 className="text-[15px] font-semibold">Randevular</h1>
       <p className="mt-1.5 max-w-prose text-[13px] text-metin-soluk">
-        Bot uygun saati konuşur, talep buraya düşer. Teyidi ekip verir, takvim kaydı
-        yapılmaz.
+        Bot gün ve saati konuşur, randevu buraya kendiliğinden düşer — ayrıca
+        onaylamanız gerekmez. Saat yanlışsa düzeltin ya da randevuyu iptal edin.
+        Müşteriye randevudan 24 saat önce hatırlatma gider.
       </p>
 
       {satirlar.length === 0 ? (
@@ -35,9 +52,17 @@ export default async function RandevularSayfasi() {
                 </span>
               </div>
 
+              <p
+                className={`mt-3 text-sm font-medium ${
+                  talep.randevu_at ? '' : 'text-metin-silik'
+                }`}
+              >
+                {randevuBicim(talep.randevu_at)}
+              </p>
+
               <dl className="mt-3 grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-3">
                 <div>
-                  <dt className="text-[11px] text-metin-silik">İstenen zaman</dt>
+                  <dt className="text-[11px] text-metin-silik">Müşterinin ifadesi</dt>
                   <dd className="mt-0.5">{talep.istenen_zaman_metin ?? '—'}</dd>
                 </div>
                 <div>
@@ -49,6 +74,12 @@ export default async function RandevularSayfasi() {
                   <dd className="mt-0.5">{talep.hizmet ?? '—'}</dd>
                 </div>
               </dl>
+
+              <RandevuZamani
+                talepId={talep.id}
+                randevuAt={talep.randevu_at}
+                iptalMi={talep.durum === 'iptal'}
+              />
 
               {konusma && (
                 <Link

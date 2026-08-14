@@ -18,7 +18,7 @@ import { gorselAdresi, gorselBul } from '@/lib/fiyat-gorselleri'
 import { gidenMedyaGonder, gidenMesajGonder } from '@/lib/mesajlar'
 import { yanitUret } from '@/lib/motor'
 import { mesaiDisiMi } from '@/lib/motor/saat'
-import { takipPlanla } from '@/lib/takip'
+import { randevuHatirlatmasiPlanla, takipPlanla } from '@/lib/takip'
 import type { Gorsel, Kullanim, YapiliCikti } from '@/lib/motor'
 import { supabaseServis } from '@/lib/supabase/sunucu'
 import type { Json, KanalAdi, KonusmaDurumu } from '@/lib/db/types'
@@ -279,27 +279,44 @@ export async function botCevapla(
     }
   }
 
-  // Randevu talebi panele düşer, teyidi ekip verir (KAPSAM karar 3).
+  // Randevu talebi panele düşer.
+  //
+  // ⚠ 14 Ağustos kararı (Fatih Bey): randevu ekip onayını BEKLEMİYOR. Bot gün
+  // aldıysa kayıt doğrudan geçerli sayılır, Telegram bildirimi düşer, ekip
+  // isterse panelden zamanı düzeltir ya da iptal eder. Eskiden durum='bekliyor'
+  // ile bekliyordu ve onaylanmayan randevu hatırlatma da alamıyordu.
   if (yapili.randevu_talebi) {
-    const { data: bekleyen } = await db
+    // İptal edilmemiş son kayıt güncellenir: müşteri günü değiştirdiğinde
+    // ikinci bir randevu satırı açmak paneli ikiz kayıtla dolduruyordu.
+    const { data: mevcut } = await db
       .from('appointment_requests')
       .select('id')
       .eq('conversation_id', konusmaId)
-      .eq('durum', 'bekliyor')
+      .neq('durum', 'iptal')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     const alanlar = {
       istenen_zaman_metin: yapili.randevu_talebi,
+      randevu_at: yapili.randevu_zaman,
       arac: yapili.arac,
       hizmet: yapili.kapsam,
+      durum: 'onaylandi' as const,
     }
 
-    if (bekleyen) {
-      await db.from('appointment_requests').update(alanlar).eq('id', bekleyen.id)
+    if (mevcut) {
+      await db.from('appointment_requests').update(alanlar).eq('id', mevcut.id)
     } else {
-      await db
-        .from('appointment_requests')
-        .insert({ conversation_id: konusmaId, ...alanlar })
+      await db.from('appointment_requests').insert({ conversation_id: konusmaId, ...alanlar })
+    }
+
+    // Zaman netleştiyse hatırlatma kurulur; netleşmediyse (randevu_zaman null)
+    // varsa eski hatırlatma iptal edilir — yanlış güne mesaj gitmesin.
+    try {
+      await randevuHatirlatmasiPlanla(konusmaId, yapili.randevu_zaman, simdi)
+    } catch (e) {
+      await hataKaydet('bot', 'randevu hatırlatması planlanamadı', e, konusmaId)
     }
   }
 

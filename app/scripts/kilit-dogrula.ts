@@ -38,6 +38,7 @@ const TEMEL: YapiliCikti = {
   devir_gerekli_mi: false,
   devir_sebebi: null,
   randevu_talebi: null,
+  randevu_zaman: null,
   gorsel_notu: null,
   fiyat_gorseli: null,
     fiyat_listesi: null,

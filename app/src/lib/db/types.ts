@@ -11,9 +11,18 @@ export type KonusmaDurumu = 'bot' | 'devir' | 'kapali'
 export type MesajYonu = 'gelen' | 'giden'
 export type MesajGonderen = 'musteri' | 'bot' | 'ekip'
 export type RandevuDurumu = 'bekliyor' | 'onaylandi' | 'iptal'
-// Merdiven 11 Ağustos 2026'da değişti (Fatih Bey): 20 dakika → 6 saat → 25 saat.
-// Eskisi 3saat → 20saat → sablon idi.
-export type TakipBasamagi = '20dk' | '6saat' | 'sablon'
+// Merdiven 14 Ağustos 2026'da tekrar değişti (Fatih Bey): 20 dakikalık ilk
+// basamak kaldırıldı, 3. saat ve 20. saat kaldı.
+// Geçmiş: 3saat/20saat → (11 Ağustos) 20dk/6saat → (14 Ağustos) 3saat/20saat.
+// ⚠ Veritabanında eski basamak adıyla bekleyen satırlar kalabiliyor; gönderim
+// döngüsü tanımadığı basamağı göndermek yerine iptal ediyor (bkz. takip.ts).
+export type TakipBasamagi = '3saat' | '20saat' | 'sablon'
+// Randevu hatırlatması aynı kuyrukta (followups) taşınır ama merdivenin PARÇASI
+// DEĞİLDİR: merdiven müşterinin son mesajından sayılır ve müşteri yazınca iptal
+// olur, hatırlatma ise randevu tarihinden sayılır ve müşteri yazsa da gitmelidir.
+// Bu yüzden ayrı tip ve ayrı işleyici (takip.ts: randevuHatirlatmalariniGonder).
+export const RANDEVU_HATIRLATMA = 'randevu-hatirlatma'
+export type KuyrukBasamagi = TakipBasamagi | typeof RANDEVU_HATIRLATMA
 export type TakipDurumu = 'beklemede' | 'gonderildi' | 'iptal'
 // KAPSAM Bölüm 5: sistem arızası Operiqo'ya, kalanı Fatih Bey'e.
 export type BildirimHedefi = 'fatih' | 'operiqo'
@@ -63,6 +72,8 @@ export type AppointmentRequest = {
   id: string
   conversation_id: string
   istenen_zaman_metin: string | null
+  /** Çözümlenmiş kesin an (ISO). NULL ise zaman netleşmemiş; hatırlatma kurulmaz. */
+  randevu_at: string | null
   arac: string | null
   hizmet: string | null
   durum: RandevuDurumu
@@ -74,7 +85,7 @@ export type AppointmentRequest = {
 export type Followup = {
   id: string
   conversation_id: string
-  basamak: TakipBasamagi
+  basamak: KuyrukBasamagi
   planlanan_at: string
   durum: TakipDurumu
   gonderildi_at: string | null

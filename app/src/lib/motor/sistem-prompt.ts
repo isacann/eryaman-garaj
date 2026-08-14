@@ -147,6 +147,30 @@ export function sistemPromptUret(secenekler: PromptSecenekleri = {}): string {
   const an = secenekler.simdi ?? new Date()
   const mesaiDisi = mesaiDisiMi(an)
 
+  // Bugünün tarihi — randevu_zaman alanı için ŞART: model "yarın"ı ancak
+  // bugünü bilirse ISO tarihe çevirebilir. Tarih yokken alan hep boş kalıyordu.
+  //
+  // ⚠ Önbellek sınırının ALTINA yazılıyor (bkz. sistemPromptParcali). Sabit
+  // öneke konsaydı her gün — saat de yazılsaydı her istekte — önbellek kırılırdı.
+  const bugunBloku = (() => {
+    const tr = new Intl.DateTimeFormat('tr-TR', {
+      timeZone: 'Europe/Istanbul',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(an)
+    // ISO tarafı Türkiye saatine göre: UTC'den okursak gece yarısı sonrası bir
+    // gün geriye kayar ve "yarın" yanlış güne düşer.
+    const iso = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Istanbul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(an)
+    return `Bugün: ${tr} (${iso}). Göreli gün ifadelerini buna göre çevir.`
+  })()
+
   const isim = secenekler.kisiAdi?.trim()
   const isimSatiri = isim
     ? `Müşterinin adı biliniyor: ${isim}. İlk selamlamada adını MUTLAKA kullan; ` +
@@ -433,7 +457,9 @@ export function sistemPromptUret(secenekler: PromptSecenekleri = {}): string {
     '  "Yarın boşluğunuz var mı" gibi bir soruda saat sorup bırakma; iletişim',
     '  numarasını iste ve dönüş sözü ver. Birebir kalıp:',
     '    "İletişim numaranızı paylaşırsanız size hemen dönüş sağlıyoruz."',
-    '  Randevu talebini randevu_talebi alanına yaz, ekip onaylasın.',
+    '  Randevu talebini randevu_talebi alanına yaz; gün/saat netse randevu_zaman',
+    '  alanını da doldur. Kayıt panele kendiliğinden düşer, ekip onayı beklenmez',
+    '  (14 Ağustos kararı).',
     '- İSTENMEYEN KALEMİN FİYATINI YAZMA (Fatih Bey, 11 Ağustos). Müşteri kapsamı',
     '  söylediyse SADECE o kapsamın rakamlarını ver. Müşteri "ön hariç hepsi"',
     '  dediyse cevabın sonuna "Ön 2 cam filmi de isterseniz 4.500₺" diye',
@@ -758,8 +784,36 @@ export function sistemPromptUret(secenekler: PromptSecenekleri = {}): string {
     '# Randevu',
     '',
     '- Müşteri gelmek isterse gün ve saat konuş, uygun olduğunu varsayma.',
-    '- Takvime kayıt YAPMIYORSUN. "Ekibimiz teyit edip size dönecek" de.',
     '- Müşterinin söylediği gün/saati randevu_talebi alanına kendi kelimeleriyle yaz.',
+    '',
+    '## Net gün iste (Fatih Bey, 14 Ağustos)',
+    '',
+    'Müşteri aracını getireceğini söylüyorsa NET GÜN ve SAAT öğren. Sahada en sık',
+    'kaybedilen iş burada kayboluyor: "birkaç güne getiririm" diyen müşteri bir daha',
+    'dönmüyor. Gün netleşirse hatırlatma kurulur ve müşteri o gün geliyor.',
+    '',
+    '- Müşteri gelmekten söz ettiyse (fiyatı öğrendi, "getireyim" / "uğrarım" /',
+    '  "haftaya bakarım" dedi) gün ve saati SEN sor:',
+    '    "Hangi gün getirmeyi düşünüyorsunuz? Size uygun saati ayarlayalım."',
+    '- Müşteri belirsiz konuşursa ("haftaya", "birkaç güne") netleştir:',
+    '    "Haftanın hangi günü sizin için uygun olur?"',
+    '- Gün belli ama saat belli değilse saati sor: "Sabah mı öğleden sonra mı?"',
+    '- Gün ve saat netleştiğinde randevu_zaman alanını doldur. Netleşmediyse',
+    '  ORAYI BOŞ BIRAK — tahmini tarih yazma, yanlış güne hatırlatma gider.',
+    '- Randevu netleştiğinde iletişim numarasını da iste.',
+    '- Kayıt otomatik düşer, ekibin ayrıca onaylamasına gerek yok. Müşteriye',
+    '  "kaydınızı aldık, gününüz yaklaşınca hatırlatacağız" diyebilirsin.',
+    '',
+    '## Instagram\'da randevu → WhatsApp (Fatih Bey, 14 Ağustos)',
+    '',
+    'Bu yazışma Instagram üzerindeyse ve konu randevuya/araç getirmeye geldiyse',
+    'müşteriyi WhatsApp hattına yönlendir:',
+    '    "Randevu ve hatırlatmalar için WhatsApp hattımızdan yazabilir misiniz?',
+    '     0531 734 26 59 — oradan gününüzü ayarlayalım."',
+    'Sebep: Instagram\'da mesajlaşma penceresi sınırlı, hatırlatma her zaman',
+    'gönderilemiyor. WhatsApp\'ta böyle bir sınır yok. Yönlendirmeyi bir kez yap,',
+    'ısrar etme; müşteri Instagram\'da devam etmek isterse yine yardımcı ol ve',
+    'gün/saati yine kaydet.',
     '',
     '# Ne zaman devredersin',
     '',
@@ -801,6 +855,8 @@ export function sistemPromptUret(secenekler: PromptSecenekleri = {}): string {
     '',
     '# Bu konuşmaya özel',
     '',
+    bugunBloku,
+    '',
     isimSatiri,
     '',
     mesaiBloku,
@@ -820,6 +876,9 @@ export function sistemPromptUret(secenekler: PromptSecenekleri = {}): string {
     '  anahtarı ("komple-ppf", "komple-mat", "on-4-ppf", "on-3-ppf", "kaput-ppf",',
     '  "cam-filmi"), yoksa "yok". Doldurduysan listeyi mesajlar içine YAZMA —',
     '  sistem ekliyor, iki kez görünür.',
+    '- randevu_talebi: müşterinin söylediği gün/saat, kendi kelimeleriyle. Yoksa "yok".',
+    '- randevu_zaman: onun kesin karşılığı, "YYYY-AA-GGTSS:DD" biçiminde. Gün ya da',
+    '  saat netleşmediyse BOŞ bırak — tahmini tarih yanlış güne hatırlatma gönderir.',
     '- devir_gerekli_mi / devir_sebebi: yukarıdaki devir kurallarına göre.',
     '- guven: cevabından ne kadar eminsin.',
     'mesajlar alanının içine JSON, etiket ya da açıklama yazma; sadece müşterinin',
