@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* Eryaman Garaj kimliği: siyah zemin, amber vurgu.
+   Bu ekrana gün boyu bakılacak. Sade, boşluklu, yüksek okunabilirlik.
+   Abartılı efekt, gradyan, animasyon yok. */
+
+@theme {
+  --color-zemin: #0a0a0b;
+  --color-yuzey: #121214;
+  --color-yuzey-2: #17171a;
+  --color-cizgi: #232327;
+  --color-cizgi-parlak: #2f2f35;
+
+  --color-metin: #f4f4f5;
+  --color-metin-soluk: #9b9ba3;
+  --color-metin-silik: #6e6e77;
+
+  --color-amber: #f2a93c;
+  --color-amber-koyu: #c9861f;
+  --color-amber-zemin: #2a1f0c;
+
+  --color-yesil: #4ade80;
+  --color-kirmizi: #f87171;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-zemin);
+  color: var(--color-metin);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-amber);
+  color: #0a0a0b;
+}
+
+/* İnce kaydırma çubuğu; koyu zeminde varsayılanı çok gürültülü. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-cizgi-parlak) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}

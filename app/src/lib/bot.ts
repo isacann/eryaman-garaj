@@ -1,0 +1,402 @@
+// Botun bir konuşmaya cevap yazması. Motoru veritabanına bağlayan katman burası.
+//
+// Motor (src/lib/motor) sadece metin üretir, veritabanını bilmez.
+// Servis katmanı (src/lib/mesajlar) sadece kaydeder, cevap üretmez.
+// Bu dosya ikisini birleştirir ve tek bir soruyu cevaplar:
+// "şu konuşmada bot ne yazacak ve bunun panele düşen sonuçları neler".
+//
+// Şimdilik tek çağıran test konsolu (/test). Meta webhook'u geldiğinde aynı
+// fonksiyonu çağıracak, kanal fark etmiyor.
+
+import 'server-only'
+
+import { botTurundanSonraBildir, sistemUyarisi } from '@/lib/bildirim'
+import { egitimIcerigiAl } from '@/lib/egitim'
+import { panelAdresi } from '@/lib/env'
+import { hataKaydet } from '@/lib/hata-log'
+import { gorselAdresi, gorselBul } from '@/lib/fiyat-gorselleri'
+import { gidenMedyaGonder, gidenMesajGonder } from '@/lib/mesajlar'
+import { yanitUret } from '@/lib/motor'
+import { mesaiDisiMi } from '@/lib/motor/saat'
+import { takipPlanla } from '@/lib/takip'
+import type { Gorsel, Kullanim, YapiliCikti } from '@/lib/motor'
+import { supabaseServis } from '@/lib/supabase/sunucu'
+import type { Json, KanalAdi, KonusmaDurumu } from '@/lib/db/types'
+
+/** Modele verilecek geçmiş uzunluğu. Konuşmalar kısa, 40 tur fazlasıyla yeter. */
+const GECMIS_SINIRI = 40
+
+/**
+ * Mesai dışı mesajı bu süre içinde bir kez atılır.
+ * Mesai dışı pencere 01:00-08:00, yani 7 saat; 8 saatlik kilit o pencereyi tam
+ * kapsar ve gece boyunca ikinci bir "mesai dışındayız" mesajını imkânsız kılar
+ * (KAPSAM karar 5: "TEK mesai dışı mesajı").
+ */
+const MESAI_DISI_KILIT_SAAT = 8
+
+/**
+ * Yanıt motoru tamamen başarısız olduğunda müşteriye giden cümle.
+ * Teknik hata anlatmaz, özür dilenip insana devredilir — müşteri açısından
+ * cevapsız kalmakla ham hata görmek arasındaki fark budur.
+ */
+export const SON_CARE_METNI =
+  'Kusura bakmayın, sistemimizde anlık bir aksaklık oldu. Ekibimiz birazdan size dönüş sağlayacak.'
+
+export type BotSonuc =
+  | {
+      tamam: true
+      yapili: YapiliCikti
+      kullanim: Kullanim
+      /** Kaydedilen giden mesajların kimlikleri, sırayla. */
+      mesajIdleri: string[]
+      /** Bu tur mesai dışı bilgilendirmesiydi, asıl cevap sabaha kaldı. */
+      mesaiDisi?: boolean
+    }
+  | {
+      tamam: false
+      /**
+       * devir = ekip devraldı, bot susar. kapali = bot ayarlardan kapalı.
+       * mesai-sessiz = mesai dışı ve bilgilendirme bu gece zaten yapıldı.
+       * hata = motor patladı.
+       */
+      sebep: 'devir' | 'kapali' | 'mesai-sessiz' | 'hata'
+      mesaj: string
+    }
+
+export type BotSecenekleri = {
+  gorseller?: Gorsel[]
+  /** Test ve cron için saat enjeksiyonu. Verilmezse şimdi. */
+  simdi?: Date
+  /**
+   * Mesai kuralını atla. Test konsolu bunu kullanır: Fatih Bey gece 02:00'de
+   * cevap kalitesini denerken "mesai dışındayız" duvarına toslamasın.
+   */
+  mesaiKuralsiz?: boolean
+}
+
+/**
+ * Konuşmanın son haline göre bot cevabı üretir, mesajları yazar ve
+ * panele düşmesi gerekenleri düşürür (randevu talebi, devir bayrağı).
+ *
+ * Çağrılmadan ÖNCE müşterinin mesajı kaydedilmiş olmalı: geçmiş veritabanından
+ * okunur, çağıranın elindeki metinden değil.
+ */
+export async function botCevapla(
+  konusmaId: string,
+  secenekler: BotSecenekleri = {},
+): Promise<BotSonuc> {
+  const db = supabaseServis()
+  const gorseller = secenekler.gorseller ?? []
+  const simdi = secenekler.simdi ?? new Date()
+
+  const { data: konusma, error: konusmaHata } = await db
+    .from('conversations')
+    .select('id, contact_id, kanal, durum, meta')
+    .eq('id', konusmaId)
+    .single()
+  if (konusmaHata || !konusma) {
+    return { tamam: false, sebep: 'hata', mesaj: `konuşma bulunamadı: ${konusmaHata?.message}` }
+  }
+
+  // Ekip devraldıysa bot susar (KAPSAM karar 4).
+  const durum = konusma.durum as KonusmaDurumu
+  if (durum === 'devir') {
+    return {
+      tamam: false,
+      sebep: 'devir',
+      mesaj: 'Bu yazışmayı ekip devraldı, bot cevap yazmıyor.',
+    }
+  }
+  if (durum === 'kapali') {
+    return { tamam: false, sebep: 'kapali', mesaj: 'Bu yazışma kapatılmış.' }
+  }
+
+  // Mesai dışı (KAPSAM karar 5): asıl cevap yazılmaz, TEK bilgilendirme mesajı
+  // atılır, yazışma kuyruğa alınır, sabah 08:00'de cron asıl cevabı yazdırır.
+  // Bilgilendirme metnini yine motor üretir (sistem-prompt.ts mesai bloğu),
+  // böylece ton tek yerden yönetilir; burada sadece "kaç kez" kararı verilir.
+  const kanal = konusma.kanal as KanalAdi
+  const mesaiKurali = !secenekler.mesaiKuralsiz && kanal !== 'test'
+  const konusmaMeta = (konusma.meta ?? {}) as Record<string, unknown>
+
+  if (mesaiKurali && mesaiDisiMi(simdi)) {
+    const oncekiBildirim = konusmaMeta.mesai_disi_bildirim_at
+    const kilitliMi =
+      typeof oncekiBildirim === 'string' &&
+      simdi.getTime() - new Date(oncekiBildirim).getTime() <
+        MESAI_DISI_KILIT_SAAT * 3600_000
+
+    // Her hâlükârda sabah cevaplanmak üzere işaretle.
+    await db
+      .from('conversations')
+      .update({
+        meta: {
+          ...konusmaMeta,
+          mesai_bekliyor: true,
+          ...(kilitliMi ? {} : { mesai_disi_bildirim_at: simdi.toISOString() }),
+        } as Json,
+      })
+      .eq('id', konusmaId)
+
+    if (kilitliMi) {
+      return {
+        tamam: false,
+        sebep: 'mesai-sessiz',
+        mesaj: 'Mesai dışı. Bilgilendirme bu gece zaten yapıldı, sabah cevaplanacak.',
+      }
+    }
+  }
+
+  const { data: ayarlar } = await db
+    .from('settings')
+    .select('bot_aktif')
+    .eq('id', 1)
+    .maybeSingle()
+  if (ayarlar && !ayarlar.bot_aktif) {
+    return {
+      tamam: false,
+      sebep: 'kapali',
+      mesaj: 'Bot ayarlardan kapalı. Ayarlar sayfasından açabilirsin.',
+    }
+  }
+
+  const [{ data: kisi }, { data: mesajlar }] = await Promise.all([
+    db.from('contacts').select('ad').eq('id', konusma.contact_id).maybeSingle(),
+    db
+      .from('messages')
+      .select('yon, gonderen, metin, medya_url, created_at')
+      .eq('conversation_id', konusmaId)
+      // ⛔ KRİTİK: EN YENİ mesajlar alınır, en eski değil.
+      // Eskiden `ascending: true` + limit(40) yazıyordu; bu, konuşma 40 mesajı
+      // geçtiğinde botun EN ESKİ 40 mesajda takılı kalması demekti — müşterinin
+      // az önce yazdığı araç/kapsam bilgisi hiç görülmüyordu. Fatih Bey'in
+      // "aracın modelini yazmış ama tekrardan istiyor" ve "sürekli aynı şeyi
+      // tekrarlıyor" şikâyetlerinin kök sebebi büyük olasılıkla buydu:
+      // test konsolunda aynı sohbette çok tur yapıldığında 40 sınırı aşılıyor.
+      .order('created_at', { ascending: false })
+      .limit(GECMIS_SINIRI),
+  ])
+
+  // Sorgu yeniden eskiye geldi; modele kronolojik sırayla verilmeli.
+  const kronolojik = [...(mesajlar ?? [])].reverse()
+
+  // Ekip mesajları da müşterinin gözünde işletmenin ağzıdır, 'bot' rolüyle geçer.
+  const gecmis = kronolojik
+    .map((m) => ({
+      rol: (m.yon === 'gelen' ? 'musteri' : 'bot') as 'musteri' | 'bot',
+      metin: m.metin?.trim() || (m.medya_url ? '[fotoğraf gönderdi]' : ''),
+    }))
+    .filter((m) => m.metin !== '')
+
+  if (gecmis.length === 0) {
+    return { tamam: false, sebep: 'hata', mesaj: 'Konuşmada modele verilecek mesaj yok.' }
+  }
+
+  let yanit
+  try {
+    yanit = await yanitUret({
+      konusma: gecmis,
+      kisiAdi: kisi?.ad ?? null,
+      // Reklamdan gelen müşterinin bağlamı konuşma açılırken meta'ya yazıldı.
+      reklamBasligi:
+        (konusmaMeta.reklam as { baslik?: string } | undefined)?.baslik ?? null,
+      gorseller,
+      simdi,
+      // Fatih Bey'in panelden eklediği bilgi/davranış notları ve — müşteri
+      // reklamdan geldiyse — o reklama tanımlı kampanya.
+      egitim: await egitimIcerigiAl(
+        (konusmaMeta.reklam as
+          | { adId?: string; baslik?: string; metin?: string }
+          | undefined) ?? null,
+        simdi,
+      ),
+    })
+  } catch (e) {
+    const hata = e instanceof Error ? e.message : 'motor hatası'
+    await sistemUyarisi('Yanıt motoru cevap üretemedi', `Konuşma: ${konusmaId}\n${hata}`)
+
+    // ⚠ 12 Ağustos: model boş cevap döndürdüğünde müşteri HİÇBİR ŞEY görmüyordu
+    // (Fatih Bey'in test ekranında ham hata metni çıktı). Motor patlasa bile
+    // müşteriye insan gibi bir cümle gider ve ekibe devir bayrağı düşer —
+    // sessizlik en kötü sonuçtur.
+    try {
+      await gidenMesajGonder(konusmaId, SON_CARE_METNI, 'bot')
+
+      const { data: guncelKonusma } = await db
+        .from('conversations')
+        .select('meta')
+        .eq('id', konusmaId)
+        .maybeSingle()
+      const meta = (guncelKonusma?.meta ?? {}) as Record<string, unknown>
+      if (!meta.devir_bayrak_at) {
+        await db
+          .from('conversations')
+          .update({ meta: { ...meta, devir_bayrak_at: simdi.toISOString() } as Json })
+          .eq('id', konusmaId)
+      }
+    } catch (ikincil) {
+      // Buraya düşmek "müşteri hiçbir şey görmedi" demektir — en ağır durum,
+      // izi Vercel loguyla birlikte kaybolmamalı.
+      await hataKaydet('bot', 'son çare cevabı da gönderilemedi', ikincil, konusmaId)
+    }
+
+    return { tamam: false, sebep: 'hata', mesaj: hata }
+  }
+
+  const { yapili, kullanim } = yanit
+
+  // Yapılandırılmış çıktı ilk mesaja iliştirilir; panelde ve konsolda oradan okunur.
+  const mesajIdleri: string[] = []
+  for (const [sira, metin] of yapili.mesajlar.entries()) {
+    const sonuc = await gidenMesajGonder(
+      konusmaId,
+      metin,
+      'bot',
+      sira === 0 ? ({ yapili, kullanim } as unknown as Json) : undefined,
+    )
+    if (sonuc.mesajId) mesajIdleri.push(sonuc.mesajId)
+  }
+
+  // Fiyat listesi görseli. Sahadaki en sık davranışlardan biri ("Fiyat listemizi
+  // yönlendiriyorum", arşivde 39 kez). Metin fiyatıyla AYNI kurala tabi: şema
+  // çözücüsü fiyat_verilebilir_mi false iken bu alanı zaten null'a çekiyor.
+  //
+  // Gönderim başarısız olursa tur iptal edilmez: metin cevabı zaten gitti,
+  // görselin gitmemesi müşteriyi cevapsız bırakmaz.
+  if (yapili.fiyat_gorseli) {
+    const gorsel = gorselBul(yapili.fiyat_gorseli)
+    const adres = gorsel ? gorselAdresi(gorsel.dosya, panelAdresi()) : null
+
+    if (gorsel && adres?.startsWith('https://')) {
+      try {
+        await gidenMedyaGonder(konusmaId, adres, gorsel.altYazi, 'bot')
+      } catch (e) {
+        console.error('[bot] fiyat görseli gönderilemedi:', e)
+      }
+    } else if (adres) {
+      // Geliştirmede panel adresi http; Meta böyle bir adresten görsel çekemez.
+      console.warn(`[bot] fiyat görseli atlandı, https değil: ${adres}`)
+    }
+  }
+
+  // Randevu talebi panele düşer, teyidi ekip verir (KAPSAM karar 3).
+  if (yapili.randevu_talebi) {
+    const { data: bekleyen } = await db
+      .from('appointment_requests')
+      .select('id')
+      .eq('conversation_id', konusmaId)
+      .eq('durum', 'bekliyor')
+      .maybeSingle()
+
+    const alanlar = {
+      istenen_zaman_metin: yapili.randevu_talebi,
+      arac: yapili.arac,
+      hizmet: yapili.kapsam,
+    }
+
+    if (bekleyen) {
+      await db.from('appointment_requests').update(alanlar).eq('id', bekleyen.id)
+    } else {
+      await db
+        .from('appointment_requests')
+        .insert({ conversation_id: konusmaId, ...alanlar })
+    }
+  }
+
+  // Devir bayrağı: bot susmaz, ekibe işaret düşer. Susma kararı insanındır.
+  // devir_bayrak_at, 15 dakika kuralının sayacıdır (KAPSAM karar 4): ekip bu
+  // andan itibaren 15 dk yazmazsa bot "ekibimiz birazdan dönecek" der.
+  if (yapili.devir_gerekli_mi) {
+    await db.from('activity_log').insert({
+      aktor: 'bot',
+      tip: 'devir_gerekli',
+      payload: {
+        konusma_id: konusmaId,
+        sebep: yapili.devir_sebebi,
+        guven: yapili.guven,
+      } as Json,
+    })
+
+    const { data: guncelKonusma } = await db
+      .from('conversations')
+      .select('meta')
+      .eq('id', konusmaId)
+      .maybeSingle()
+    const meta = (guncelKonusma?.meta ?? {}) as Record<string, unknown>
+
+    // Zaten bir devir bayrağı bekliyorsa sayacı sıfırlama.
+    if (!meta.devir_bayrak_at) {
+      await db
+        .from('conversations')
+        .update({
+          meta: { ...meta, devir_bayrak_at: simdi.toISOString() } as Json,
+        })
+        .eq('id', konusmaId)
+    }
+  }
+
+  // Mesai dışı bilgilendirmesi de asıl cevap da verildiğine göre yazışma artık
+  // sabahı bekleyen kuyrukta değil.
+  const mesaiDisiTuru = mesaiKurali && mesaiDisiMi(simdi)
+  if (!mesaiDisiTuru && konusmaMeta.mesai_bekliyor) {
+    const kalan = { ...konusmaMeta }
+    delete kalan.mesai_bekliyor
+    await db.from('conversations').update({ meta: kalan as Json }).eq('id', konusmaId)
+  }
+
+  // Bildirim ve takip yan iştir: patlarsa müşteriye giden cevabı geri almaz.
+  // Bu yüzden ikisi de kendi içinde yutulur, sadece loglanır.
+  try {
+    await botTurundanSonraBildir(konusmaId, kisi?.ad ?? null, kanal, yapili, simdi)
+  } catch (e) {
+    console.error('[bot] bildirim gönderilemedi:', e)
+  }
+
+  try {
+    // Mesai dışı bilgilendirmesinden sonra takip merdiveni kurulmaz: asıl
+    // cevap sabah yazılacak, merdiven o zaman kurulur.
+    if (!mesaiDisiTuru) await takipPlanla(konusmaId, simdi)
+  } catch (e) {
+    console.error('[bot] takip planlanamadı:', e)
+  }
+
+  return { tamam: true, yapili, kullanim, mesajIdleri, mesaiDisi: mesaiDisiTuru }
+}
+
+/**
+ * Gece gelip cevapsız kalan yazışmaların asıl cevabını sabah yazar.
+ * KAPSAM karar 5'in ikinci yarısı: "sohbet kuyruğa alınır, 08:00'de bot asıl
+ * cevabı yazar." Cron çağırır.
+ *
+ * Mesai dışındayken çağrılırsa hiçbir şey yapmaz — kuyruk sabahı bekler.
+ */
+export async function mesaiKuyrugunuIslet(
+  an: Date = new Date(),
+): Promise<{ cevaplandi: number; atlandi: number }> {
+  if (mesaiDisiMi(an)) return { cevaplandi: 0, atlandi: 0 }
+
+  const db = supabaseServis()
+  const { data: bekleyenler } = await db
+    .from('conversations')
+    .select('id')
+    .eq('durum', 'bot')
+    .eq('meta->>mesai_bekliyor', 'true')
+    .order('son_mesaj_at', { ascending: true })
+    .limit(25)
+
+  let cevaplandi = 0
+  let atlandi = 0
+
+  for (const konusma of bekleyenler ?? []) {
+    try {
+      const sonuc = await botCevapla(konusma.id, { simdi: an })
+      if (sonuc.tamam) cevaplandi += 1
+      else atlandi += 1
+    } catch (e) {
+      console.error('[bot] sabah cevabı yazılamadı:', e)
+      atlandi += 1
+    }
+  }
+
+  return { cevaplandi, atlandi }
+}

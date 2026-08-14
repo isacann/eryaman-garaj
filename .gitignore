@@ -1,0 +1,35 @@
+# ---- SIRLAR — asla depoya girmez ----
+.secrets.env
+.secrets.env.eski
+.db-sifre.txt
+.env
+.env.local
+.env.*.local
+
+# ---- Tarayıcı oturumları (Playwright kalıcı profilleri) ----
+# Bunlar giriş yapılmış Instagram/WhatsApp oturumlarıdır; arşiv çekmek için
+# kullanıldı. Depoya girerlerse hesap ele geçirilebilir.
+.wa-profile/
+.wa-profile-yedek/
+.ig-profile/
+.ig-profile-yedek/
+
+# ---- İç notlar, teslim edilmez ----
+_operiqo-notlar.md
+
+# ---- Üretilen çıktılar ----
+node_modules/
+.next/
+.vercel
+_altin-set/
+_ekran/
+*.tsbuildinfo
+
+# ---- Geçici ----
+image.png
+*.log
+.DS_Store
+Thumbs.db
+
+# Kişisel araç ayarları (izin listeleri makineye özel)
+.claude/settings.local.json
