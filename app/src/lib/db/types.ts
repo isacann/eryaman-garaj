@@ -11,12 +11,15 @@ export type KonusmaDurumu = 'bot' | 'devir' | 'kapali'
 export type MesajYonu = 'gelen' | 'giden'
 export type MesajGonderen = 'musteri' | 'bot' | 'ekip'
 export type RandevuDurumu = 'bekliyor' | 'onaylandi' | 'iptal'
-// Merdiven 14 Ağustos 2026'da tekrar değişti (Fatih Bey): 20 dakikalık ilk
-// basamak kaldırıldı, 3. saat ve 20. saat kaldı.
+// Merdiven 14 Ağustos 2026'da iki kez değişti (Fatih Bey):
+//   1. 20 dakikalık ilk basamak kaldırıldı → 3. saat / 20. saat
+//   2. 25. saat ŞABLON basamağı kaldırıldı → WhatsApp artık Evolution'da,
+//      Meta'nın onaylı şablon mekanizması diye bir şey yok. 24 saatlik pencere
+//      de yok, dolayısıyla "pencere kapandı, şablon gerekir" durumu oluşmuyor.
 // Geçmiş: 3saat/20saat → (11 Ağustos) 20dk/6saat → (14 Ağustos) 3saat/20saat.
 // ⚠ Veritabanında eski basamak adıyla bekleyen satırlar kalabiliyor; gönderim
 // döngüsü tanımadığı basamağı göndermek yerine iptal ediyor (bkz. takip.ts).
-export type TakipBasamagi = '3saat' | '20saat' | 'sablon'
+export type TakipBasamagi = '3saat' | '20saat'
 // Randevu hatırlatması aynı kuyrukta (followups) taşınır ama merdivenin PARÇASI
 // DEĞİLDİR: merdiven müşterinin son mesajından sayılır ve müşteri yazınca iptal
 // olur, hatırlatma ise randevu tarihinden sayılır ve müşteri yazsa da gitmelidir.

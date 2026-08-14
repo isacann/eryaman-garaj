@@ -16,7 +16,7 @@
 //
 // Evolution'da 24 saatlik müşteri hizmetleri penceresi ve şablon zorunluluğu
 // YOKTUR — bunlar Meta Cloud API kuralıydı. Takip merdiveninin şablon basamağı
-// (`settings.sablon_takip_aktif`) bu yüzden kapalı kalabilir.
+// bu yüzden 14 Ağustos 2026'da tamamen kaldırıldı.
 
 import { supabaseServis } from '@/lib/supabase/sunucu'
 import type { Json } from '@/lib/db/types'

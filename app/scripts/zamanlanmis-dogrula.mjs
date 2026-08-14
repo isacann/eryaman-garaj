@@ -116,8 +116,8 @@ const { data: takipler } = await db
   .eq('conversation_id', konusmaId)
 
 kontrol(
-  'takip merdiveni kuruldu (3saat + 20saat + sablon)',
-  (takipler?.length ?? 0) === 3,
+  'takip merdiveni kuruldu (3saat + 20saat)',
+  (takipler?.length ?? 0) === 2,
   `bulunan: ${(takipler ?? []).map((t) => t.basamak).join(', ') || 'yok'}`,
 )
 
@@ -142,23 +142,28 @@ const { data: ucSaat } = await db
   .maybeSingle()
 
 kontrol(
-  '20. dakika takibi gönderildi',
+  '3. saat takibi gönderildi',
   ucSaat?.durum === 'gonderildi',
   `durum: ${ucSaat?.durum}`,
 )
 
 // ---------------------------------------------------------------------------
-console.log('\n3) Şablon basamağı kapalıyken gönderilmiyor mu (KAPSAM Madde 4.3)')
+// Kaldırılmış basamak koruması. Merdiven değiştiğinde veritabanında eski adla
+// bekleyen satırlar kalıyor; metinleri olmadığı için gönderilirlerse müşteriye
+// BOŞ mesaj gider. 14 Ağustos'ta 'sablon' basamağı tamamen kaldırıldı, bu
+// senaryo gerçek oldu.
+console.log('\n3) Tanınmayan basamak gönderilmiyor mu')
 
-await db
-  .from('followups')
-  .update({ planlanan_at: gecmis })
-  .eq('conversation_id', konusmaId)
-  .eq('basamak', 'sablon')
+await db.from('followups').insert({
+  conversation_id: konusmaId,
+  basamak: 'sablon',
+  planlanan_at: gecmis,
+  durum: 'beklemede',
+})
 
 await cronCalistir()
 
-const { data: sablon } = await db
+const { data: eskiBasamak } = await db
   .from('followups')
   .select('durum, meta')
   .eq('conversation_id', konusmaId)
@@ -166,9 +171,9 @@ const { data: sablon } = await db
   .maybeSingle()
 
 kontrol(
-  'şablon takibi gönderilmedi, iptal edildi',
-  sablon?.durum === 'iptal' && sablon?.meta?.sebep === 'sablon-kapali',
-  `durum: ${sablon?.durum}, sebep: ${sablon?.meta?.sebep}`,
+  'kaldırılmış basamak gönderilmedi, iptal edildi',
+  eskiBasamak?.durum === 'iptal' && eskiBasamak?.meta?.sebep === 'bilinmeyen-basamak',
+  `durum: ${eskiBasamak?.durum}, sebep: ${eskiBasamak?.meta?.sebep}`,
 )
 
 // ---------------------------------------------------------------------------

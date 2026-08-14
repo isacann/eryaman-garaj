@@ -61,7 +61,7 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Randevu | Bot **net gün/saat sorar** ve iletişim numarası ister. Kayıt panele **onay beklemeden** düşer (14 Ağustos kararı); ekip zamanı düzeltir ya da iptal eder |
 | Randevu hatırlatması | Randevudan **24 saat önce**; o an geçmişse randevu günü **10:00**, o da geçmişse **2 saat önce**; randevuya 2 saatten az kaldıysa gönderilmez |
 | Instagram'da randevu | Müşteri **WhatsApp'a yönlendirilir** (0531 734 26 59). Sebep: Instagram'da 24 saat penceresi duruyor, hatırlatma her zaman gönderilemiyor. Bir kez söylenir, ısrar edilmez |
-| Takip merdiveni | **3. saat** → **20. saat** → 25. saat onaylı şablon (ücretli, panelde kapalı gelir). 20 dakikalık basamak 14 Ağustos'ta kaldırıldı — sahada fazla ısrarcı kaçıyordu |
+| Takip merdiveni | **3. saat** → **20. saat**, ikisi de ücretsiz. 14 Ağustos: 20 dakikalık basamak kaldırıldı (fazla ısrarcı), 25. saat şablon basamağı da kaldırıldı (Evolution'da Meta şablonu ve 24 saat penceresi yok) |
 | Bildirim | Telegram. Randevu / devir / sıcak müşteri anlık; gece gelenler sabaha ertelenir |
 | Bot kimliği | "Eryaman Garaj" adına konuşur, robot olup olmadığı sorulursa saklamaz |
 | Hitap | Erkek → bey, kadın → hanım, **unisex ya da emin değilse hitap yok**, sadece ad |

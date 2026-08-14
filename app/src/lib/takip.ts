@@ -2,12 +2,18 @@
 //
 //   3. saat  → ÜCRETSİZ ("listemize bakabildiniz mi")
 //   20. saat → ÜCRETSİZ
-//   25. saat → tek onaylı şablon, ÜCRETLİ (settings.sablon_takip_aktif KAPALI gelir)
 //
-// ⚠ Süreler iki kez değişti. 11 Ağustos'ta 3saat/20saat yerine 20dk/6saat
-// denendi (gerekçe: fiyat listesinden kısa süre sonra dönmek satış pratiğine
-// daha yakın). 14 Ağustos'ta Fatih Bey 20 dakikalık basamağı KALDIRDI ve
-// 3. saat / 20. saat düzenine dönüldü — 20 dakika sahada fazla ısrarcı kaçıyor.
+// ⚠ Süreler 14 Ağustos 2026'da iki kez değişti (Fatih Bey):
+//   · 20 dakikalık ilk basamak KALDIRILDI — sahada fazla ısrarcı kaçıyordu.
+//     (11 Ağustos'ta 3saat/20saat yerine 20dk/6saat denenmişti, geri dönüldü.)
+//   · 25. saat ŞABLON basamağı KALDIRILDI — WhatsApp artık Evolution üzerinden
+//     gidiyor; Meta'nın onaylı şablon mekanizması ve 24 saatlik müşteri
+//     hizmetleri penceresi burada YOK. Şablon, pencere kapandıktan sonra mesaj
+//     atabilmek içindi; pencere olmayınca basamağın da anlamı kalmadı.
+//
+// ⚠ Instagram hâlâ Meta'da ve orada 24 saat penceresi GEÇERLİ. Instagram
+// bağlandığında pencere dışı takip gönderilemeyecek; o kanal için ayrı bir
+// karar gerekir (bugün konu değil, Instagram gelen mesajı henüz işlemiyor).
 //
 // Kesme koşulları: müşteri cevap verdi, ilgilenmediğini söyledi, ekip devraldı,
 // randevu onaylandı ya da yazışma kapandı.
@@ -35,8 +41,6 @@ import { RANDEVU_HATIRLATMA, type Json, type TakipBasamagi } from '@/lib/db/type
 export const MERDIVEN: { basamak: TakipBasamagi; dakika: number; ucretli: boolean }[] = [
   { basamak: '3saat', dakika: 3 * 60, ucretli: false },
   { basamak: '20saat', dakika: 20 * 60, ucretli: false },
-  // Pencere 24. saatte kapanır; şablon ondan sonra gider.
-  { basamak: 'sablon', dakika: 25 * 60, ucretli: true },
 ]
 
 /**
@@ -52,8 +56,6 @@ export const VARSAYILAN_METINLER: Record<TakipBasamagi, string> = {
   '3saat': 'Fiyat listemize bakabildiniz mi? Aklınıza takılan bir şey olursa buradayım.',
   '20saat':
     'Müsait olduğunuzda dönerseniz aracınızın bilgilerini alabilirim. Müsaitseniz buyrun gelin, burada daha net yardımcı olalım size.',
-  sablon:
-    'Merhabalar, aracınızla ilgili görüşmemiz yarım kalmıştı. Hâlâ ilgileniyorsanız yardımcı olmaktan memnuniyet duyarız.',
 }
 
 /**
@@ -78,13 +80,15 @@ type TakipMetinleri = Partial<Record<TakipBasamagi, string>>
 
 async function ayarlariOku(): Promise<{
   takipAktif: boolean
-  sablonAktif: boolean
   metinler: Record<TakipBasamagi, string>
 }> {
   const db = supabaseServis()
+  // sablon_takip_aktif kolonu şemada duruyor ama artık okunmuyor: şablon
+  // basamağı kaldırıldı (Evolution'da onaylı şablon yok). Kolon, ileride
+  // Meta Cloud API'ye dönülürse diye bırakıldı.
   const { data } = await db
     .from('settings')
-    .select('takip_aktif, sablon_takip_aktif, meta')
+    .select('takip_aktif, meta')
     .eq('id', 1)
     .maybeSingle()
 
@@ -92,11 +96,9 @@ async function ayarlariOku(): Promise<{
 
   return {
     takipAktif: data?.takip_aktif ?? true,
-    sablonAktif: data?.sablon_takip_aktif ?? false,
     metinler: {
       '3saat': ham['3saat']?.trim() || VARSAYILAN_METINLER['3saat'],
       '20saat': ham['20saat']?.trim() || VARSAYILAN_METINLER['20saat'],
-      sablon: ham.sablon?.trim() || VARSAYILAN_METINLER.sablon,
     },
   }
 }
@@ -235,7 +237,7 @@ export async function bekleyenTakipleriGonder(
   an: Date = new Date(),
 ): Promise<{ gonderildi: number; iptal: number }> {
   const db = supabaseServis()
-  const { takipAktif, sablonAktif, metinler } = await ayarlariOku()
+  const { takipAktif, metinler } = await ayarlariOku()
 
   if (!takipAktif) return { gonderildi: 0, iptal: 0 }
 
@@ -257,24 +259,14 @@ export async function bekleyenTakipleriGonder(
   for (const satir of kuyruk ?? []) {
     const basamak = satir.basamak as TakipBasamagi
 
-    // Merdiven değişince (11 Ağustos: 3saat/20saat → 20dk/6saat) veritabanında
-    // eski basamak adıyla bekleyen satırlar kalıyor. Bunların metni yok;
-    // korumasız bırakılırsa müşteriye BOŞ mesaj gider. Tanımadığımız basamağı
-    // göndermek yerine iptal ediyoruz.
+    // Merdiven her değiştiğinde veritabanında eski basamak adıyla bekleyen
+    // satırlar kalıyor (14 Ağustos: 20dk/6saat → 3saat/20saat, ayrıca 'sablon'
+    // tamamen kaldırıldı). Bunların metni yok; korumasız bırakılırsa müşteriye
+    // BOŞ mesaj gider. Tanımadığımız basamağı göndermek yerine iptal ediyoruz.
     if (!MERDIVEN.some((m) => m.basamak === basamak)) {
       await db
         .from('followups')
         .update({ durum: 'iptal', meta: { sebep: 'bilinmeyen-basamak' } as Json })
-        .eq('id', satir.id)
-      iptal += 1
-      continue
-    }
-
-    // Şablon basamağı Meta onayı gelene kadar kapalı (KAPSAM Madde 4.3).
-    if (basamak === 'sablon' && !sablonAktif) {
-      await db
-        .from('followups')
-        .update({ durum: 'iptal', meta: { sebep: 'sablon-kapali' } as Json })
         .eq('id', satir.id)
       iptal += 1
       continue

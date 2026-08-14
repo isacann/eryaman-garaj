@@ -100,12 +100,14 @@ export default function AyarFormu({ ayarlar }: { ayarlar: Settings }) {
         varsayilan={ayarlar.takip_aktif}
       />
 
-      <Anahtar
-        ad="sablon_takip_aktif"
-        etiket="24 saat sonrası şablon takibi"
-        aciklama="Yanıt penceresi kapandıktan sonra Meta'nın onayladığı şablonu gönderir. Ücretli, Meta onayı gerekir."
-        varsayilan={ayarlar.sablon_takip_aktif}
-      />
+      {/*
+        "24 saat sonrası şablon takibi" anahtarı 14 Ağustos 2026'da kaldırıldı.
+        WhatsApp Evolution üzerinden gidiyor; Meta'nın onaylı şablon mekanizması
+        ve 24 saatlik yanıt penceresi orada yok, dolayısıyla anahtar hiçbir şey
+        yapmıyordu. Açık duran ama işlevsiz bir anahtar, olmayan bir özelliğin
+        çalıştığı izlenimini verir. Kolon veritabanında duruyor (Meta'ya dönüş
+        ihtimaline karşı), yalnızca arayüzden ve takip mantığından çıkarıldı.
+      */}
 
       <Anahtar
         ad="telegram_aktif"
