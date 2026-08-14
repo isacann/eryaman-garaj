@@ -24,7 +24,7 @@ Bu işin iki ayrı parçası var ve **aynı yerde yapılmazlar**:
 
 - [ ] **Klasörün tam yedeğini al.** `C:\Users\hp\Desktop\eryaman` → harici bir kopyaya. Geri dönülemez adımlar var.
 - [ ] `.secrets.env` dosyasının bir kopyasını `.secrets.env.eski` olarak sakla — yeni anahtarlar yazılırken eskisi lazım olabilir.
-- [ ] **Şu an neyin çalıştığını doğrula:** `cd app && npm run bedava:dogrula` → 15/15 · 6/6 · 6/6 · 4/4 · 13/13 beklenir.
+- [ ] **Şu an neyin çalıştığını doğrula:** `cd app && npm run bedava:dogrula` → 15/15 · 6/6 · 6/6 · 4/4 · 23/23 · 18/18 beklenir.
 - [ ] Fatih Bey'e önceden söylenmesi gerekenler hazır olsun:
   - Aylık gider tablosu (aşağıda, "Fatih Bey'in aylık gideri")
   - Kredi kartı gerekecek: **Vercel, Anthropic, Railway** kayıt sırasında ister
@@ -190,7 +190,7 @@ Instagram tarafı **Meta'nın resmi API'sinde kalıyor** (14 Ağustos kararı). 
       `POST .../me/subscribed_apps?subscribed_fields=messages`
 - [ ] **4.5** Gerçek bir Instagram hesabından DM at, mesajın panele düştüğünü gör
 
-⚠ **Kod tarafında açık iş var:** `api/webhooks/instagram/route.ts` imza doğrulamasını ve webhook karşılamayı yapıyor ama gelen mesajı henüz kaydetmiyor (`gelenMesajiCoz` → `gelenMesajiKaydet` bağlantısı TODO). Live mode'a geçmeden bu tamamlanmalı.
+✅ **Kod tarafı hazır** (14 Ağustos): kanal, webhook rotası, ad çekme, sınavlar tamam. Live mode açılır açılmaz DM'ler panele düşmeye başlar, ek geliştirme gerekmez.
 
 ---
 
@@ -200,7 +200,7 @@ Sırayla koşulur, hepsi geçmeden "teslim oldu" denmez.
 
 | # | Komut | Beklenen | Bakiye |
 |---|---|---|---|
-| 1 | `npm run bedava:dogrula` | 15/15 · 6/6 · 6/6 · 4/4 · 13/13 | 🆓 |
+| 1 | `npm run bedava:dogrula` | 15/15 · 6/6 · 6/6 · 4/4 · 23/23 · 18/18 | 🆓 |
 | 2 | `npx tsc --noEmit` | çıktı yok | 🆓 |
 | 3 | `npm run cron:kur -- --durum` | 2 iş aktif, son çalışmalar `succeeded` | 🆓 |
 | 4 | `select public.eski_verileri_temizle(kuru => true);` | rapor döner, **hiçbir şey silmez** | 🆓 |
@@ -282,7 +282,7 @@ select public.eski_verileri_temizle(kuru => true);
 
 | İş | Aciliyet | Not |
 |---|---|---|
-| Instagram webhook'unda mesaj kaydetme bağlantısı | 🔴 Live mode öncesi şart | `gelenMesajiCoz` → `gelenMesajiKaydet` TODO |
+| ~~Instagram webhook'unda mesaj kaydetme bağlantısı~~ | ✅ **BİTTİ** (14 Ağustos) | Kanal + rota tamamlandı, 10 vakalık sınavı var. Canlıda doğrulandı: imza, echo filtresi, kayıt akışı |
 | ~~`channels/whatsapp.ts`'i Evolution'a çevirme~~ | ✅ **BİTTİ** (14 Ağustos) | 13 vakalık bakiyesiz sınavı var (`npm run kanal:dogrula`). Cloud API sürümü `whatsapp-cloud.ts`'te saklandı |
 | Instagram jetonu 60 günlük — yenileme takibi | 🟡 Süre dolmadan | Şu an elle yenilenmesi gerekir |
 | `npm audit` — 3 yüksek uyarı | 🟡 Bakım penceresi | `next@16`'ya kırıcı yükseltme istiyor |

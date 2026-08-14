@@ -189,47 +189,182 @@ const VAKALAR: Vaka[] = [
   },
 ]
 
+/** Gerçek Instagram yükünün iskeleti. */
+function igYuk(olay: Record<string, unknown>, nesne = 'instagram') {
+  return {
+    object: nesne,
+    entry: [
+      {
+        id: '17841400000000000',
+        messaging: [
+          {
+            sender: { id: 'IGSID-MUSTERI' },
+            recipient: { id: '17841400000000000' },
+            timestamp: 1786000000000,
+            ...olay,
+          },
+        ],
+      },
+    ],
+  }
+}
+
+const IG_VAKALAR: Vaka[] = [
+  {
+    ad: 'Düz DM',
+    neden: 'En sık biçim; çözülemezse hiçbir Instagram mesajı işlenmez.',
+    yuk: igYuk({ message: { mid: 'MID1', text: 'cam filmi fiyatı' } }),
+    bekleniyor: 1,
+    kontrol: (m) => {
+      if (m.kanal !== 'instagram') return `kanal yanlış: ${m.kanal}`
+      if (m.metin !== 'cam filmi fiyatı') return `metin yanlış: ${m.metin}`
+      if (m.kanalKimlik !== 'IGSID-MUSTERI') return `kimlik yanlış: ${m.kanalKimlik}`
+      if (m.hariciId !== 'MID1') return `harici id yanlış: ${m.hariciId}`
+      return null
+    },
+  },
+  {
+    ad: '🔴 Kendi gönderdiğimiz mesaj (is_echo)',
+    neden:
+      'WhatsApp fromMe filtresinin Instagram karşılığı. Elenmezse bot kendi cevabına cevap yazar, SONSUZ DÖNGÜ.',
+    yuk: igYuk({
+      sender: { id: '17841400000000000' },
+      recipient: { id: 'IGSID-MUSTERI' },
+      message: { mid: 'MID2', text: 'Merhabalar, fiyat listemiz...', is_echo: true },
+    }),
+    bekleniyor: 0,
+  },
+  {
+    ad: '🔴 Okundu bildirimi',
+    neden: 'Mesaj değil; işlenirse boş kayıt açılır ve bot sebepsiz cevap yazar.',
+    yuk: igYuk({ read: { mid: 'MID3' } }),
+    bekleniyor: 0,
+  },
+  {
+    ad: '🔴 Tepki (reaction)',
+    neden: 'Müşteri kalp bıraktı diye bot cevap yazmamalı.',
+    yuk: igYuk({ reaction: { mid: 'MID4', action: 'react', emoji: '❤️' } }),
+    bekleniyor: 0,
+  },
+  {
+    ad: '🔴 Silinmiş mesaj',
+    neden: 'Müşteri mesajını sildiyse içerik yok.',
+    yuk: igYuk({ message: { mid: 'MID5', is_deleted: true } }),
+    bekleniyor: 0,
+  },
+  {
+    ad: '🔴 Yorum olayı (changes)',
+    neden: 'Instagram yorumları KAPSAM DIŞI (Bölüm 3), yalnızca DM işlenir.',
+    yuk: { object: 'instagram', entry: [{ id: '1784', changes: [{ field: 'comments' }] }] },
+    bekleniyor: 0,
+  },
+  {
+    ad: '🔴 Başka ürünün yükü (object=page)',
+    neden: 'Messenger/Facebook olayı Instagram rotasına düşerse işlenmemeli.',
+    yuk: igYuk({ message: { mid: 'MID6', text: 'selam' } }, 'page'),
+    bekleniyor: 0,
+  },
+  {
+    ad: 'Fotoğraf eki',
+    neden: 'Müşteri aracının fotoğrafını atıyor; bot bakıp not düşecek.',
+    yuk: igYuk({
+      message: {
+        mid: 'MID7',
+        attachments: [{ type: 'image', payload: { url: 'https://x/arac.jpg' } }],
+      },
+    }),
+    bekleniyor: 1,
+    kontrol: (m) =>
+      m.medyaUrl === 'https://x/arac.jpg' ? null : `medya adresi yanlış: ${m.medyaUrl}`,
+  },
+  {
+    ad: 'Reklamdan gelen DM (ads_context_data)',
+    neden:
+      'Reklamdan gelen müşteri "merhaba" yazsa bile hangi hizmet için geldiği bilinmeli (kampanya eşleşmesi buna bakıyor).',
+    yuk: igYuk({
+      message: {
+        mid: 'MID8',
+        text: 'merhaba',
+        referral: {
+          source: 'ADS',
+          ad_id: '120210000000',
+          ads_context_data: { ad_title: 'Cam Filmi Kampanyası' },
+        },
+      },
+    }),
+    bekleniyor: 1,
+    kontrol: (m) => {
+      if (!m.reklam) return 'reklam bilgisi çözülmedi'
+      if (m.reklam.baslik !== 'Cam Filmi Kampanyası') return `başlık yanlış: ${m.reklam.baslik}`
+      if (m.reklam.adId !== '120210000000') return `ad id yanlış: ${m.reklam.adId}`
+      return null
+    },
+  },
+  {
+    ad: 'Zaman damgası milisaniye çözülüyor',
+    neden:
+      'Instagram ms, WhatsApp saniye veriyor. Karıştırılırsa mesaj 1970 tarihine düşer ve sıralama bozulur.',
+    yuk: igYuk({ message: { mid: 'MID9', text: 'selam' }, timestamp: 1786000000000 }),
+    bekleniyor: 1,
+    kontrol: (m) =>
+      m.zaman.startsWith('2026-') ? null : `zaman yanlış çözüldü: ${m.zaman}`,
+  },
+]
+
 async function main() {
   envYukle()
   const { whatsappKanal } = await import('../src/lib/channels/whatsapp')
+  const { instagramKanal } = await import('../src/lib/channels/instagram')
 
   let gecen = 0
   const dusenler: string[] = []
 
-  console.log('\nEvolution (WhatsApp) kanal çözücüsü — bakiyesiz sınav\n')
-  console.log('─'.repeat(72))
+  function vakalariKosur(baslik: string, vakalar: Vaka[], coz: (y: unknown) => GelenMesaj[]) {
+    console.log(`\n${baslik}`)
+    console.log('─'.repeat(72))
 
-  for (const vaka of VAKALAR) {
-    let sonuc: GelenMesaj[]
-    try {
-      sonuc = whatsappKanal.gelenMesajiCoz(vaka.yuk)
-    } catch (e) {
-      dusenler.push(`${vaka.ad} — ÇÖZÜCÜ PATLADI: ${e instanceof Error ? e.message : e}`)
-      console.log(`✗ ${vaka.ad}\n    çözücü patladı: ${e instanceof Error ? e.message : e}`)
-      continue
+    for (const vaka of vakalar) {
+      let sonuc: GelenMesaj[]
+      try {
+        sonuc = coz(vaka.yuk)
+      } catch (e) {
+        dusenler.push(`${vaka.ad} — ÇÖZÜCÜ PATLADI: ${e instanceof Error ? e.message : e}`)
+        console.log(`✗ ${vaka.ad}\n    çözücü patladı: ${e instanceof Error ? e.message : e}`)
+        continue
+      }
+
+      if (sonuc.length !== vaka.bekleniyor) {
+        dusenler.push(`${vaka.ad} — ${vaka.bekleniyor} mesaj bekleniyordu, ${sonuc.length} çıktı`)
+        console.log(`✗ ${vaka.ad}`)
+        console.log(`    ${vaka.bekleniyor} mesaj bekleniyordu, ${sonuc.length} çıktı`)
+        console.log(`    neden önemli: ${vaka.neden}`)
+        continue
+      }
+
+      const hata = vaka.kontrol && sonuc[0] ? vaka.kontrol(sonuc[0]) : null
+      if (hata) {
+        dusenler.push(`${vaka.ad} — ${hata}`)
+        console.log(`✗ ${vaka.ad}\n    ${hata}\n    neden önemli: ${vaka.neden}`)
+        continue
+      }
+
+      gecen++
+      console.log(`✓ ${vaka.ad}`)
     }
-
-    if (sonuc.length !== vaka.bekleniyor) {
-      dusenler.push(`${vaka.ad} — ${vaka.bekleniyor} mesaj bekleniyordu, ${sonuc.length} çıktı`)
-      console.log(`✗ ${vaka.ad}`)
-      console.log(`    ${vaka.bekleniyor} mesaj bekleniyordu, ${sonuc.length} çıktı`)
-      console.log(`    neden önemli: ${vaka.neden}`)
-      continue
-    }
-
-    const hata = vaka.kontrol && sonuc[0] ? vaka.kontrol(sonuc[0]) : null
-    if (hata) {
-      dusenler.push(`${vaka.ad} — ${hata}`)
-      console.log(`✗ ${vaka.ad}\n    ${hata}\n    neden önemli: ${vaka.neden}`)
-      continue
-    }
-
-    gecen++
-    console.log(`✓ ${vaka.ad}`)
   }
 
+  vakalariKosur(
+    'Evolution (WhatsApp) kanal çözücüsü — bakiyesiz sınav',
+    VAKALAR,
+    (y) => whatsappKanal.gelenMesajiCoz(y),
+  )
+  vakalariKosur('Instagram (Meta) kanal çözücüsü', IG_VAKALAR, (y) =>
+    instagramKanal.gelenMesajiCoz(y),
+  )
+
+  const toplam = VAKALAR.length + IG_VAKALAR.length
   console.log('─'.repeat(72))
-  console.log(`\n${gecen}/${VAKALAR.length} vaka doğru çözüldü\n`)
+  console.log(`\n${gecen}/${toplam} vaka doğru çözüldü\n`)
 
   if (dusenler.length > 0) {
     console.log('Düşenler:')

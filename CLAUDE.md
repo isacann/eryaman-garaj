@@ -104,7 +104,7 @@ Uygulamanın hiçbir yeri doğrudan WhatsApp'a ya da Instagram'a bağlanmaz; her
 |---|---|
 | `whatsapp.ts` | **Evolution API** — aktif |
 | `whatsapp-cloud.ts` | Meta Cloud API — kullanılmıyor, dönüş ihtimaline karşı saklanıyor |
-| `instagram.ts` | Meta — ⚠ gelen mesaj kaydetme bağlantısı TODO |
+| `instagram.ts` | **Meta resmî API** — kod tamam, ⚠ Live mode bekliyor |
 | `mock.ts`, `test.ts` | Sınav ve panel test konsolu |
 
 ⚠ **Evolution'da en kritik filtre `fromMe`.** Kendi gönderdiğimiz mesaj webhook'a geri düşüyor; elenmezse bot kendi cevabını müşteri mesajı sanıp kendine cevap yazar ve sonsuz döngüye girer. Grup mesajları (`@g.us`) ve durum güncellemeleri de elenir. Hepsi `npm run kanal:dogrula` ile sınanıyor.
@@ -195,7 +195,7 @@ cd app && npm run bedava:dogrula
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
 | `kampanya:dogrula` (4 vaka) | Kampanya yanlış müşteriye sızıyor mu |
-| `kanal:dogrula` (13 vaka) | Webhook çözücüsü — özellikle `fromMe` sonsuz döngü koruması |
+| `kanal:dogrula` (23 vaka) | Her iki webhook çözücüsü — özellikle `fromMe` / `is_echo` sonsuz döngü koruması |
 | `randevu:dogrula` (18 vaka) | Randevu tarihi çözücüsü + hatırlatma anı ve metni |
 
 Ayrıca: `npx tsc --noEmit`, `npm run zamanlanmis:dogrula` (⚠ yerel dev sunucu şart), `node scripts/konsol-dogrula.mjs <e-posta> <şifre>`.
@@ -283,8 +283,8 @@ Sabit ~5 sn taban, geri kalanın tamamı **çıktı uzunluğu**. Ölç: `npm run
 
 | İş | Öncelik |
 |---|---|
-| Instagram webhook'unda gelen mesaj kaydetme bağlantısı (`gelenMesajiCoz` → `gelenMesajiKaydet`) | 🔴 Live mode öncesi şart |
-| Meta İşletme Doğrulaması → Instagram Live mode | 🔴 Instagram'ın tek engeli |
+
+| Meta İşletme Doğrulaması → Instagram Live mode | 🔴 **Instagram'ın tek kalan engeli** (kod 14 Ağustos'ta tamamlandı) |
 | Instagram jetonu 60 günlük — yenileme takibi kurulmadı | 🟡 |
 | `npm audit` — 3 yüksek uyarı (Next.js alt bağımlılıkları, `next@16` kırıcı yükseltme ister) | 🟡 |
 | `fiyat_listesi` alanının kullanım oranını 4/4'e çıkarmak | 🟡 |
