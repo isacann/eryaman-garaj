@@ -24,7 +24,7 @@
     "yayinla": "node scripts/yayinla.mjs",
     "kilit:dogrula": "tsx scripts/kilit-dogrula.ts",
     "uctan-uca:dogrula": "tsx scripts/uctan-uca-dogrula.ts",
-    "bedava:dogrula": "npm run kilit:dogrula && npm run uctan-uca:dogrula && npm run prompt:netlik && npm run kampanya:dogrula && npm run kanal:dogrula && npm run randevu:dogrula",
+    "bedava:dogrula": "npm run kilit:dogrula && npm run uctan-uca:dogrula && npm run prompt:netlik && npm run kampanya:dogrula && npm run kanal:dogrula && npm run randevu:dogrula && npm run parcali:dogrula",
     "prompt:netlik": "tsx scripts/prompt-netlik-dogrula.ts",
     "model:karsilastir": "tsx scripts/model-karsilastir.ts",
     "kampanya:dogrula": "tsx scripts/kampanya-dogrula.ts",
@@ -32,7 +32,8 @@
     "kanal:dogrula": "tsx scripts/kanal-dogrula.ts",
     "teslim:env": "node scripts/teslim-env.mjs",
     "randevu:dogrula": "tsx scripts/randevu-dogrula.ts",
-    "randevu:uctan-uca": "tsx --conditions=react-server scripts/randevu-uctan-uca.ts"
+    "randevu:uctan-uca": "tsx --conditions=react-server scripts/randevu-uctan-uca.ts",
+    "parcali:dogrula": "tsx --conditions=react-server scripts/parcali-mesaj-dogrula.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

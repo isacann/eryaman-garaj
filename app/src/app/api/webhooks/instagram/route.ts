@@ -23,9 +23,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { after, NextResponse } from 'next/server'
 import { instagramKanal, instagramProfilAl } from '@/lib/channels/instagram'
-import { gelenMesajiKaydet } from '@/lib/mesajlar'
-import { botCevapla } from '@/lib/bot'
-import { hataKaydet } from '@/lib/hata-log'
+import { gelenleriIsle } from '@/lib/gelen-tur'
 import { supabaseServis } from '@/lib/supabase/sunucu'
 
 export const runtime = 'nodejs'
@@ -76,39 +74,13 @@ export async function POST(req: Request) {
 
   // Okundu/iletildi bildirimleri ve yorum olayları da bu adrese geliyor;
   // mesaj yoksa yapılacak iş de yok.
+  // Kaydetme, yerleşme beklemesi ve bot turu ortak akışta (lib/gelen-tur.ts).
+  // Instagram'a özel tek iş: webhook ad taşımadığı için yeni kişide profil
+  // çekilip kaydediliyor — bot selamlamada ismi kullanabilsin diye.
   if (mesajlar.length > 0) {
-    after(async () => {
-      for (const mesaj of mesajlar) {
-        try {
-          const sonuc = await gelenMesajiKaydet(mesaj)
-
-          // Meta aynı olayı yeniden gönderebiliyor. harici_id ile yakalanan
-          // tekrarda bot ikinci kez cevap YAZMAZ.
-          if (sonuc.tekrar) {
-            console.log('[ig-webhook] tekrar gelen mesaj, bot atlandı:', mesaj.hariciId)
-            continue
-          }
-
-          // Instagram webhook'u ad taşımıyor. Botun selamlamada ismi kullanması
-          // Fatih Bey'in ısrarla istediği şey, o yüzden yeni kişide bir kez
-          // profil çekilip kaydediliyor. Başarısız olursa akış bozulmaz —
-          // bot isimsiz selamlar.
-          await adiTamamla(mesaj.kanalKimlik)
-
-          const cevap = await botCevapla(sonuc.konusmaId)
-          if (!cevap.tamam) {
-            await hataKaydet(
-              'ig-webhook',
-              `bot cevaplamadı: ${cevap.sebep}`,
-              cevap.mesaj,
-              sonuc.konusmaId,
-            )
-          }
-        } catch (e) {
-          await hataKaydet('ig-webhook', `mesaj işlenemedi (${mesaj.hariciId ?? '-'})`, e)
-        }
-      }
-    })
+    after(() =>
+      gelenleriIsle('ig-webhook', mesajlar, (mesaj) => adiTamamla(mesaj.kanalKimlik)),
+    )
   }
 
   // Meta'ya her hâlükârda 200: hata dönersek yeniden deneme kuyruğu şişer.

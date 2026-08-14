@@ -16,9 +16,7 @@
 
 import { after, NextResponse } from 'next/server'
 import { whatsappKanal } from '@/lib/channels/whatsapp'
-import { gelenMesajiKaydet } from '@/lib/mesajlar'
-import { botCevapla } from '@/lib/bot'
-import { hataKaydet } from '@/lib/hata-log'
+import { gelenleriIsle } from '@/lib/gelen-tur'
 
 export const runtime = 'nodejs'
 
@@ -49,35 +47,10 @@ export async function POST(req: Request) {
 
   // Evolution bağlantı durumu, okundu bilgisi, kişi güncellemesi gibi onlarca
   // olay yolluyor; müşteri mesajı yoksa yapılacak iş de yok.
+  // Kaydetme, yerleşme beklemesi ve bot turu ortak akışta (lib/gelen-tur.ts):
+  // müşteri arka arkaya yazdığında tek cevap üretilmesini o sağlıyor.
   if (mesajlar.length > 0) {
-    after(async () => {
-      for (const mesaj of mesajlar) {
-        try {
-          const sonuc = await gelenMesajiKaydet(mesaj)
-
-          // Aynı olay yeniden gelebiliyor. harici_id ile yakalanan tekrarda bot
-          // ikinci kez cevap YAZMAZ, yoksa müşteri aynı cevabı iki kez alır.
-          if (sonuc.tekrar) {
-            console.log('[wa-webhook] tekrar gelen mesaj, bot atlandı:', mesaj.hariciId)
-            continue
-          }
-
-          const cevap = await botCevapla(sonuc.konusmaId)
-          if (!cevap.tamam) {
-            // Vercel logu ~1 saatte siliniyor; "dün akşam neden cevap vermedi"
-            // sorusunun cevabı activity_log'da 60 gün duruyor.
-            await hataKaydet(
-              'wa-webhook',
-              `bot cevaplamadı: ${cevap.sebep}`,
-              cevap.mesaj,
-              sonuc.konusmaId,
-            )
-          }
-        } catch (e) {
-          await hataKaydet('wa-webhook', `mesaj işlenemedi (${mesaj.hariciId ?? '-'})`, e)
-        }
-      }
-    })
+    after(() => gelenleriIsle('wa-webhook', mesajlar))
   }
 
   // Her hâlükârda 200: hata dönersek Evolution'ın yeniden deneme kuyruğu şişer.
