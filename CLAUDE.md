@@ -204,7 +204,7 @@ cd app && npm run bedava:dogrula
 
 | Sınav | Ne kanıtlar |
 |---|---|
-| `kilit:dogrula` (31 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** |
+| `kilit:dogrula` (37 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** |
 | `parcali:dogrula` (6 vaka) | Parçalı mesajda tek cevap + **tur kilidinin atomikliği** |
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
@@ -287,6 +287,8 @@ npx tsx scripts/sohbet.ts "mesaj1" "mesaj2" --ad=Ayşe
 | Kısa soru | 6–9 sn |
 
 Sabit ~5 sn taban, geri kalanın tamamı **çıktı uzunluğu**. Ölç: `npm run gecikme:olc`.
+
+⚠ **Hazır liste, kendisini TANITAN cümlenin ardına girer** (`hazirListeyiYerlestir`). Eskiden körü körüne ilk mesajdan sonraya konuyordu; model açılışı ve "seçeneklerimiz şöyle:" cümlesini ayrı mesajlar yazınca liste araya giriyor, tanıtım cümlesi sona öksüz kalıyordu (15 Ağustos sahada: "son mesajdan sonra kalmış öylece").
 
 **Fiyat listesi kodla basılıyor** (`fiyatListesiUret`): model yalnızca `fiyat_listesi` alanına anahtar yazıyor (`komple-ppf`, `komple-mat`, `on-4-ppf`, `on-3-ppf`, `kaput-ppf`, `cam-filmi`), metin `FIYAT-LISTESI.md`'den üretiliyor.
 ⚠ Model bu alanı ~3/4 koşuda kullanıyor; kalanında listeyi kendi yazıyor (kod ayıklıyor, sonuç doğru ama süre kazanılmıyor). Bir tur daha prompt çalışması gerekiyor.

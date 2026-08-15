@@ -12,7 +12,7 @@
 //
 // Çalıştır: npx tsx scripts/kilit-dogrula.ts
 
-import { eksikleriBul, ilkAd } from '../src/lib/motor'
+import { eksikleriBul, hazirListeyiYerlestir, ilkAd } from '../src/lib/motor'
 import type { YapiliCikti } from '../src/lib/motor/types'
 
 type Vaka = {
@@ -46,6 +46,30 @@ const TEMEL: YapiliCikti = {
 } as YapiliCikti
 
 const VAKALAR: Vaka[] = [
+  // ── Fatih Bey, 15 Ağustos: "son mesajdan sonra kalmış öylece" ────────────
+  {
+    ad: 'fiyat-kapanissiz',
+    kaynak: 'Sahada: mat PPF listesi gitti, konuşma kapanış sorusu olmadan durdu',
+    bekleniyor: 'fiyat-kapanissiz',
+    mesajlar: [
+      'Mat PPF seçeneklerimiz:\n• XPEL Xtreme PPF (MAT) – 110.000₺ (190 mikron, 5 yıl garanti)\n• XPEL Ultimate Stealth (MAT) – 175.000₺ (200 mikron, 10 yıl garanti)',
+      'Mat PPF komple uygulanıyor.',
+    ],
+    sonMusteriMetni: 'sıfır km Tesla model Y Premium mat PPF için bilgi alabilir miyim',
+    tumMusteriMetni: 'sıfır km Tesla model Y Premium mat PPF için bilgi alabilir miyim',
+  },
+  {
+    ad: 'fiyat-kapanissiz (yanlış alarm — soru zaten var)',
+    kaynak: 'Bot soruyu sorduysa kilit tetiklenmemeli',
+    bekleniyor: null,
+    mesajlar: [
+      'Mat PPF seçeneklerimiz:\n• XPEL Xtreme PPF (MAT) – 110.000₺ (190 mikron, 5 yıl garanti)\n• XPEL Ultimate Stealth (MAT) – 175.000₺ (200 mikron, 10 yıl garanti)',
+      'Hangi seride ilerlemek istersiniz?',
+    ],
+    sonMusteriMetni: 'mat ppf fiyatı nedir',
+    tumMusteriMetni: 'komple mat ppf fiyatı nedir',
+  },
+
   // ── Fatih Bey, 15 Ağustos: "Renkli kaplama için fiyat vermesin" ──────────
   {
     ad: 'renk-degisiminde-fiyat',
@@ -85,6 +109,9 @@ const VAKALAR: Vaka[] = [
     bekleniyor: null,
     mesajlar: [
       'Komple PPF seçeneklerimiz:\n• XPEL Xtreme PPF – 100.000₺ (190 mikron, 5 yıl garanti, üstün parlaklık)',
+      // Kapanış sorusu: `fiyat-kapanissiz` kilidi 15 Ağustos'ta eklendi ve
+      // gerçek bir fiyat cevabı zaten soruyla biter. Vaka onsuz yapaydı.
+      'Hangi seride ilerlemek istersiniz?',
     ],
     sonMusteriMetni: 'komple ppf fiyatı nedir',
     tumMusteriMetni: 'BMW G20 komple ppf fiyatı nedir',
@@ -105,6 +132,7 @@ const VAKALAR: Vaka[] = [
     bekleniyor: null,
     mesajlar: [
       'XPEL Ultimate Plus – 170.000₺\n• 200 mikron, 10 yıl garanti\n• Self-healing, hidrofobik yüzey',
+      'Hangi seride ilerlemek istersiniz?',
     ],
     sonMusteriMetni: 'komple ppf fiyatı',
   },
@@ -287,6 +315,60 @@ for (const v of VAKALAR) {
   }
 }
 
+// ── Fiyat listesinin YERİ (Fatih Bey, 15 Ağustos) ─────────────────────────
+// Sahada liste, kendisini tanıtan cümleden ÖNCE gitti; "seçeneklerimiz şöyle:"
+// listeden sonra öksüz kaldı ve konuşma yarım göründü.
+console.log('\nFiyat listesinin yeri — tanıtan cümleden SONRA gelmeli')
+
+const YERLESIM_VAKALARI: {
+  ad: string
+  mesajlar: string[]
+  listeIndeksi: number
+  neden: string
+}[] = [
+  {
+    ad: 'Sahadaki vaka: açılış + tanıtım cümlesi',
+    mesajlar: [
+      'Aracınız şimdiden hayırlı olsun Barış bey 😊 Sıfır km Tesla Model Y için en ideal zaman.',
+      'Mat PPF komple uygulanıyor, seçeneklerimiz şöyle:',
+    ],
+    listeIndeksi: 2,
+    neden: 'Liste tanıtım cümlesinin ARDINA girmeli, arasına değil.',
+  },
+  {
+    ad: 'Tek mesaj, iki nokta ile bitiyor',
+    mesajlar: ['Komple PPF seçeneklerimiz:'],
+    listeIndeksi: 1,
+    neden: 'Tanıtım son mesajsa liste en sona eklenir.',
+  },
+  {
+    ad: 'Tanıtım cümlesi yok → eski davranış (ilk mesajdan sonra)',
+    mesajlar: ['Merhabalar Ahmet bey, hoşgeldiniz.', 'Teslim süremiz 2-3 iş günü.'],
+    listeIndeksi: 1,
+    neden: 'Tanıtım bulunamazsa liste açılıştan sonra gelir.',
+  },
+  {
+    ad: '👇 işaretli tanıtım da yakalanır',
+    mesajlar: ['Merhabalar Ahmet bey.', 'BMW G20 için komple PPF seçeneklerimiz aşağıda 👇'],
+    listeIndeksi: 2,
+    neden: 'Sahadaki en sık kalıp; liste ondan sonra gelmeli.',
+  },
+]
+
+for (const v of YERLESIM_VAKALARI) {
+  const sonuc = hazirListeyiYerlestir(v.mesajlar, 'komple-ppf')
+  // Listeyi rakamından tanı: fiyat satırı içeren mesaj listenin kendisidir.
+  const bulunan = sonuc.findIndex((m) => /\d{2,3}\.\d{3}\s*₺/.test(m))
+  if (bulunan === v.listeIndeksi) {
+    gecti += 1
+    console.log(`  ✓ ${v.ad} — liste ${bulunan}. sırada`)
+  } else {
+    kalanlar.push(v.ad)
+    console.log(`  ✗ ${v.ad} — liste ${bulunan}. sırada, beklenen ${v.listeIndeksi}`)
+    console.log(`      kaynak: ${v.neden}`)
+  }
+}
+
 // ── Hitap adı: soyadı düşürülüyor mu (Fatih Bey, 15 Ağustos) ──────────────
 // Sahada "Merhabalar Asım ALTUN bey" ve "Merhabalar Mustafa Kemiksiz bey"
 // gitti. Kaynak WhatsApp pushName: müşteri profiline tam adını yazıyor.
@@ -320,7 +402,7 @@ for (const v of ISIM_VAKALARI) {
   }
 }
 
-const TOPLAM = VAKALAR.length + ISIM_VAKALARI.length
+const TOPLAM = VAKALAR.length + YERLESIM_VAKALARI.length + ISIM_VAKALARI.length
 
 console.log(`\n${'─'.repeat(70)}`)
 console.log(`${gecti}/${TOPLAM} kilit doğru davrandı`)

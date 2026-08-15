@@ -214,7 +214,7 @@ function cumleTekrariMi(cumle: string, oncekiKelimeler: Set<string>): boolean {
  * ⚠ Model yine de kendi listesini yazdıysa (eski alışkanlık) o satırlar atılır:
  * aynı fiyatlar iki kez görünmesin.
  */
-function hazirListeyiYerlestir(mesajlar: string[], anahtar: string | null): string[] {
+export function hazirListeyiYerlestir(mesajlar: string[], anahtar: string | null): string[] {
   if (!anahtar) return mesajlar
   const liste = fiyatListesiUret(anahtar)
   if (!liste) return mesajlar
@@ -237,7 +237,33 @@ function hazirListeyiYerlestir(mesajlar: string[], anahtar: string | null): stri
     .filter((m) => m !== '')
 
   if (temiz.length === 0) return [liste]
-  return [temiz[0], liste, ...temiz.slice(1)]
+
+  // ⚠ 15 Ağustos, sahada: liste KÖRÜ KÖRÜNE ilk mesajdan sonraya konuyordu
+  // (`[temiz[0], liste, ...temiz.slice(1)]`). Model açılışı ve listeyi TANITAN
+  // cümleyi ayrı mesajlar olarak yazdığında sıra bozuluyordu:
+  //
+  //   1. "Aracınız şimdiden hayırlı olsun Barış bey 😊 ..."
+  //   2. [FİYAT LİSTESİ]                       ← araya girdi
+  //   3. "Mat PPF komple uygulanıyor, seçeneklerimiz şöyle:"   ← öksüz kaldı
+  //
+  // Müşteri listeyi önce, "şöyle:" cümlesini sonra görüyor ve konuşma yarım
+  // kalmış gibi duruyor (Fatih Bey: "son mesajdan sonra kalmış öylece").
+  //
+  // Doğrusu: liste, kendisini TANITAN cümlenin hemen ardına girer. Tanıtım
+  // cümlesi iki nokta ile biter ya da listeyi vaat eden bir kelime taşır.
+  // Böyle bir cümle yoksa eski davranış korunur (ilk mesajdan sonra).
+  const tanitimKalibi = /:\s*$/
+  const vaatKalibi = /(seçenek|seçenekler|listemiz|fiyatlarımız|fiyat listemiz|şöyle|aşağıda|👇)/i
+
+  let konum = 1
+  for (let i = temiz.length - 1; i >= 0; i -= 1) {
+    if (tanitimKalibi.test(temiz[i]) || vaatKalibi.test(temiz[i])) {
+      konum = i + 1
+      break
+    }
+  }
+
+  return [...temiz.slice(0, konum), liste, ...temiz.slice(konum)]
 }
 
 /**
@@ -258,6 +284,12 @@ function hafifEksikleriKodlaDuzelt(
   // Selamlama + isim: cümle deterministik kurulabiliyor.
   const isim = baglam.isim?.trim()
   if (adlar.has('selamlama-isim') && isim) sonuc = selamlamaEkle(sonuc, isim)
+
+  // Kapanış sorusu: tek cümle, deterministik olarak eklenebilir. Model
+  // çağırmak 40+ saniye; müşteriyi bunun için bekletmeye değmez.
+  if (adlar.has('fiyat-kapanissiz')) {
+    sonuc = [...sonuc, 'Hangi seride ilerlemek istersiniz?']
+  }
 
   // Aynı fiyat listesini ikinci kez yazmak: tekrar satırları atılır.
   if (adlar.has('liste-tekrari')) {
@@ -446,6 +478,29 @@ export function eksikleriBul(
         'Fiyat verilebilir durumdasın ve müşteri fiyat sordu. Serilerin TAMAMINI ' +
         '"• ürün – garanti: fiyat" biçiminde rakamlarıyla listele. Ürün adlarını ' +
         'sayıp fiyatı yazmadan cümleyi bitirme.',
+    })
+  }
+
+  // 1c) Fiyat verdikten sonra konuşmayı KAPANIŞ SORUSUYLA sürdür.
+  //
+  // ⚠ 15 Ağustos, sahada: müşteriye mat PPF listesi gitti ve yazışma orada
+  // durdu — öneri yok, kapanış sorusu yok (Fatih Bey: "son mesajdan sonra
+  // kalmış öylece"). Kilitli kural fiyat cevabının biçimini şöyle tanımlıyor:
+  // liste → fiyat/performans önerisi → pakete dahiller → KAPANIŞ SORUSU.
+  //
+  // Bu kilit yalnızca son halkayı, en ucuza ölçülebilen ve satışa en çok
+  // yarayan parçayı kolluyor: rakam verilmiş ama müşteriye tek bir soru
+  // sorulmamışsa konuşma ölü noktada bırakılmış demektir.
+  //
+  // `agir: false` — bilgi yanlış değil, eksik olan bir sonraki adım. Süre
+  // bütçesi doluysa model yeniden çağrılmaz, cümle kodla eklenir.
+  if (yeniRakamlar.length > 0 && !tumMetin.includes('?')) {
+    eksikler.push({
+      ad: 'fiyat-kapanissiz',
+      talimat:
+        'Fiyatları verdin ama konuşmayı sürdürecek bir soru sormadın; yazışma ölü ' +
+        'noktada kalıyor. Cevabın sonuna tek bir kapanış sorusu ekle: hangi seride ' +
+        'ilerlemek istediğini ya da aracı ne zaman getirmeyi düşündüğünü sor.',
     })
   }
 
