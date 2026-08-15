@@ -20,7 +20,13 @@
 
 import { supabaseServis } from '@/lib/supabase/sunucu'
 import type { Json } from '@/lib/db/types'
-import { KanalHatasi, type GelenMesaj, type GonderimSonucu, type Kanal } from './types'
+import {
+  KanalHatasi,
+  type GelenMesaj,
+  type GidenEkipMesaji,
+  type GonderimSonucu,
+  type Kanal,
+} from './types'
 
 function tabanAdres(): string {
   const u = process.env.EVOLUTION_API_URL
@@ -251,6 +257,63 @@ export const whatsappKanal: Kanal = {
           : null,
         zaman,
         ham: payload as Json,
+      },
+    ]
+  },
+
+  /**
+   * İşletme hattından ÇIKAN mesajlar (`fromMe: true`).
+   *
+   * `gelenMesajiCoz`'un tam tersi filtresi. Oradaki `fromMe` elemesi sonsuz
+   * döngü koruması olarak AYNEN duruyor; burası o elenen mesajları farklı bir
+   * amaçla topluyor: ekip telefondan yazdıysa botu susturmak.
+   *
+   * Botun kendi gönderdiği mesajlar da buradan çıkar — onları ayırmak bu
+   * fonksiyonun işi değil, kimlik eşleşmesiyle üst katmanda yapılır
+   * (lib/mesajlar.ts). Burada kimlik taşımak yeterli.
+   */
+  gidenEkipMesajiCoz(payload: unknown): GidenEkipMesaji[] {
+    if (typeof payload !== 'object' || payload === null) return []
+    const yuk = payload as EvoYuk
+
+    const olay = (yuk.event ?? '').toLowerCase().replace(/[._-]/g, '')
+    if (olay !== 'messagesupsert') return []
+
+    const veri = yuk.data
+    const jid = metin(veri?.key?.remoteJid)
+    if (!veri || !jid) return []
+
+    // Bu fonksiyonun ilgilendiği TEK şey giden mesaj.
+    if (!veri.key?.fromMe) return []
+
+    // Grup ve durum güncellemeleri yine elenir.
+    if (!jid.endsWith('@s.whatsapp.net')) return []
+
+    const govde = veri.message
+    if (!govde) return []
+
+    const icerik =
+      metin(govde.conversation) ??
+      metin(govde.extendedTextMessage?.text) ??
+      metin(govde.imageMessage?.caption) ??
+      metin(govde.videoMessage?.caption)
+
+    // Kimliksiz mesaj bot mesajından ayırt edilemez; şüphede işlem yapma.
+    const hariciId = metin(veri.key?.id)
+    if (!hariciId) return []
+
+    const zamanSaniye = Number(veri.messageTimestamp)
+    const zaman = Number.isFinite(zamanSaniye)
+      ? new Date(zamanSaniye * 1000).toISOString()
+      : new Date().toISOString()
+
+    return [
+      {
+        kanal: 'whatsapp',
+        kanalKimlik: jidNumara(jid),
+        hariciId,
+        metin: icerik,
+        zaman,
       },
     ]
   },

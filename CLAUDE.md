@@ -59,11 +59,13 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Sigorta / kasko / vergi / hukuk | Devir zorunlu, bot iddia üretmez |
 | Fotoğraf | Bot bakar, aracı okur, notu panele düşer, **fiyat kesmez** |
 | Fiyat listesi görseli | Bot gönderir. Metin fiyatıyla aynı kurala tabi: kapsam netleşmeden görsel yok |
-| Randevu | Bot **net gün/saat sorar** ve iletişim numarası ister. Kayıt panele **onay beklemeden** düşer (14 Ağustos kararı); ekip zamanı düzeltir ya da iptal eder |
+| Randevu | Bot **net gün/saat sorar**. ⛔ **İletişim numarası İSTEMEZ** (15 Ağustos, önceki karar iptal): müşteri zaten o hattan yazıyor. Kayıt panele **onay beklemeden** düşer (14 Ağustos kararı); ekip zamanı düzeltir ya da iptal eder |
 | Randevu kaydı ne zaman açılır | **Sadece somut gün/saat söylenirse.** Niyet yetmez ("randevu alabilir miyim", "gelmek istiyorum", selamlama). **Kod kilidi var** (`randevuTalebiGecerliMi`): 15 Ağustos'ta "merhaba"ya bile randevu bildirimi düşüyordu |
 | Randevu hatırlatması | Randevudan **24 saat önce**; o an geçmişse randevu günü **10:00**, o da geçmişse **2 saat önce**; randevuya 2 saatten az kaldıysa gönderilmez |
 | Instagram'da randevu | Müşteri **WhatsApp'a yönlendirilir** (0531 734 26 59). Sebep: Instagram'da 24 saat penceresi duruyor, hatırlatma her zaman gönderilemiyor. Bir kez söylenir, ısrar edilmez |
 | Takip merdiveni | **3. saat** → **20. saat**, ikisi de ücretsiz. 14 Ağustos: 20 dakikalık basamak kaldırıldı (fazla ısrarcı), 25. saat şablon basamağı da kaldırıldı (Evolution'da Meta şablonu ve 24 saat penceresi yok) |
+| Ekip elle cevap yazarsa | Bot susar. **Panelden de, telefondan WhatsApp uygulamasından da** — ikisi de yazışmayı devre alır (15 Ağustos) |
+| Motor patlarsa | Müşteriye **teknik hiçbir şey yazılmaz** (15 Ağustos). Devir bayrağı düşer, ekip 15 dk yazmazsa nötr cümle gider |
 | Bildirim | Telegram. Randevu / devir / sıcak müşteri anlık; gece gelenler sabaha ertelenir |
 | Bot kimliği | "Eryaman Garaj" adına konuşur, robot olup olmadığı sorulursa saklamaz |
 | Hitap | Erkek → bey, kadın → hanım, **unisex ya da emin değilse hitap yok**, sadece ad |
@@ -111,6 +113,8 @@ Uygulamanın hiçbir yeri doğrudan WhatsApp'a ya da Instagram'a bağlanmaz; her
 
 ⚠ **Evolution'da en kritik filtre `fromMe`.** Kendi gönderdiğimiz mesaj webhook'a geri düşüyor; elenmezse bot kendi cevabını müşteri mesajı sanıp kendine cevap yazar ve sonsuz döngüye girer. Grup mesajları (`@g.us`) ve durum güncellemeleri de elenir. Hepsi `npm run kanal:dogrula` ile sınanıyor.
 
+⚠ **`fromMe` iki yere birden bakar.** `gelenMesajiCoz` onu eler (sonsuz döngü koruması, değişmedi); `gidenEkipMesajiCoz` **yalnızca** onları toplar. İkincisi botu tetiklemez, **susturur**: Fatih Bey telefondan cevap yazınca yazışma devre geçer. Botun kendi mesajı da `fromMe` gelir — ayrım `harici_id` eşleşmesiyle yapılır (`ekipElleYazdiginiIsle`). ⚠ Bu ayrım yanlış kurulursa bot her cevabından sonra kendini devre alır ve bir daha hiç yazmaz.
+
 ⚠ **Bağlı cihaz oturumu** telefon uzun süre çevrimdışı kalırsa düşer; QR yeniden taratılmalı.
 
 ### Yanıt motoru (`app/src/lib/motor/`)
@@ -123,7 +127,7 @@ Uygulamanın hiçbir yeri doğrudan WhatsApp'a ya da Instagram'a bağlanmaz; her
 ⚠ Müşteri adı promptun **sonunda** olmalı; başta olduğu sürece önbellek her müşteride kırılıyordu (hit oranı 0).
 
 ### Zorunlu-parça kilidi
-Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bir düzeltme turuyla** yeniden çağrılır. Kurallardan bazıları: `selamlama-isim`, `fiyat-listesi-eksik`, `liste-tekrari`, `kapsamsiz-ilk-fiyat`, `kapsama-dahil-kalem-fiyati`, `arac-tekrar-soruldu`, `cumle-tekrari`, `kuru-acilis`, `ozelliksiz-liste`, `kompleye-kismi-teklifi`, `fiyati-araca-bagladi`, `randevuda-telefon-yok`.
+Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bir düzeltme turuyla** yeniden çağrılır. Kurallardan bazıları: `selamlama-isim`, `fiyat-listesi-eksik`, `liste-tekrari`, `kapsamsiz-ilk-fiyat`, `kapsama-dahil-kalem-fiyati`, `arac-tekrar-soruldu`, `cumle-tekrari`, `kuru-acilis`, `ozelliksiz-liste`, `kompleye-kismi-teklifi`, `fiyati-araca-bagladi`. (`randevuda-telefon-yok` **15 Ağustos'ta kaldırıldı** — Fatih Bey numara istenmesinden vazgeçti.)
 
 **Düzeltme turuna süre bütçesi var** (`MOTOR_DUZELTME_BUTCE_MS`, varsayılan 8 sn): ilk çağrı bütçeyi aştıysa yalnızca `agir: true` işaretli eksikler (yanlış/eksik fiyat) ikinci tura çıkar. Biçimsel kusur için müşteri bir dakika daha bekletilmez. Hafif eksikler modelsiz düzeltilir (`hafifEksikleriKodlaDuzelt`).
 
@@ -199,7 +203,7 @@ cd app && npm run bedava:dogrula
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
 | `kampanya:dogrula` (4 vaka) | Kampanya yanlış müşteriye sızıyor mu |
-| `kanal:dogrula` (23 vaka) | Her iki webhook çözücüsü — özellikle `fromMe` / `is_echo` sonsuz döngü koruması |
+| `kanal:dogrula` (29 vaka) | Her iki webhook çözücüsü — `fromMe` / `is_echo` sonsuz döngü koruması + **giden ekip mesajı çözücüsü** |
 | `randevu:dogrula` (41 vaka) | Randevu tarihi çözücüsü + hatırlatma anı/metni + **randevu talebi filtresi** + **proaktif sessiz saat** |
 
 Ayrıca: `npx tsc --noEmit`, `npm run zamanlanmis:dogrula` (⚠ yerel dev sunucu şart), `node scripts/konsol-dogrula.mjs <e-posta> <şifre>`.

@@ -362,7 +362,101 @@ async function main() {
     instagramKanal.gelenMesajiCoz(y),
   )
 
-  const toplam = VAKALAR.length + IG_VAKALAR.length
+  // ── Giden ekip mesajı çözücüsü (Fatih Bey, 15 Ağustos: "Biz mesaja cevap
+  // verdikten sonra bot devreden çıksın"). gelenMesajiCoz'un TAM TERSİ filtresi.
+  //
+  // ⚠ En tehlikeli hata burada "fazla yakalamak": bu çözücü bir müşteri
+  // mesajını giden sanarsa yazışma yanlışlıkla devre geçer ve bot bir daha hiç
+  // yazmaz. O yüzden fromMe=false olan HER şey elenmeli.
+  console.log('\nGiden ekip mesajı çözücüsü — botu susturan yol')
+  console.log('─'.repeat(72))
+
+  const gidenVakalari: { ad: string; neden: string; yuk: unknown; bekleniyor: number }[] = [
+    {
+      ad: 'Ekip telefondan yazdı (fromMe) → yakalanır',
+      neden: 'Asıl hedef: Fatih Bey telefondan cevap yazınca bot susmalı.',
+      yuk: yuk({
+        key: { remoteJid: '905317227480@s.whatsapp.net', fromMe: true, id: 'OUT1' },
+        message: { conversation: 'Merhaba, hemen dönüş sağlıyorum' },
+      }),
+      bekleniyor: 1,
+    },
+    {
+      ad: '🔴 Müşteri mesajı (fromMe=false) → yakalanmaz',
+      neden: 'Yakalanırsa müşteri yazdıkça yazışma devre geçer, bot hiç cevap vermez.',
+      yuk: yuk({
+        key: { remoteJid: '905317227480@s.whatsapp.net', fromMe: false, id: 'IN1' },
+        message: { conversation: 'PPF fiyatı nedir' },
+      }),
+      bekleniyor: 0,
+    },
+    {
+      ad: '🔴 Kimliksiz giden mesaj → yakalanmaz',
+      neden: 'Kimlik yoksa bot mesajından ayırt edilemez; şüphede işlem yapılmaz.',
+      yuk: yuk({
+        key: { remoteJid: '905317227480@s.whatsapp.net', fromMe: true },
+        message: { conversation: 'kimliksiz' },
+      }),
+      bekleniyor: 0,
+    },
+    {
+      ad: '🔴 Gruba giden mesaj → yakalanmaz',
+      neden: 'Grup yazışması müşteri sohbeti değil.',
+      yuk: yuk({
+        key: { remoteJid: '120363001234567890@g.us', fromMe: true, id: 'OUT2' },
+        message: { conversation: 'gruba yazdım' },
+      }),
+      bekleniyor: 0,
+    },
+    {
+      ad: '🔴 Mesaj olmayan olay → yakalanmaz',
+      neden: 'Evolution 40+ olay tipi yolluyor; sadece messages.upsert işlenir.',
+      yuk: yuk(
+        {
+          key: { remoteJid: '905317227480@s.whatsapp.net', fromMe: true, id: 'OUT3' },
+          message: { conversation: 'x' },
+        },
+        'CONNECTION_UPDATE',
+      ),
+      bekleniyor: 0,
+    },
+  ]
+
+  for (const v of gidenVakalari) {
+    let sonuc
+    try {
+      sonuc = whatsappKanal.gidenEkipMesajiCoz?.(v.yuk) ?? []
+    } catch (e) {
+      dusenler.push(`${v.ad} — çözücü patladı`)
+      console.log(`✗ ${v.ad}\n    çözücü patladı: ${e instanceof Error ? e.message : e}`)
+      continue
+    }
+    if (sonuc.length !== v.bekleniyor) {
+      dusenler.push(`${v.ad} — ${v.bekleniyor} bekleniyordu, ${sonuc.length} çıktı`)
+      console.log(`✗ ${v.ad}\n    ${v.bekleniyor} bekleniyordu, ${sonuc.length} çıktı`)
+      console.log(`    neden önemli: ${v.neden}`)
+      continue
+    }
+    gecen++
+    console.log(`✓ ${v.ad}`)
+  }
+
+  // İki çözücü asla aynı mesajı döndürmemeli — biri müşteri, biri işletme.
+  const ortakYuk = yuk({
+    key: { remoteJid: '905317227480@s.whatsapp.net', fromMe: true, id: 'OUT9' },
+    message: { conversation: 'aynı yük' },
+  })
+  const gelenSayi = whatsappKanal.gelenMesajiCoz(ortakYuk).length
+  const gidenSayi = whatsappKanal.gidenEkipMesajiCoz?.(ortakYuk).length ?? 0
+  if (gelenSayi === 0 && gidenSayi === 1) {
+    gecen++
+    console.log('✓ Aynı yükte iki çözücü çakışmıyor (gelen 0, giden 1)')
+  } else {
+    dusenler.push(`çözücü çakışması — gelen ${gelenSayi}, giden ${gidenSayi}`)
+    console.log(`✗ Çözücü çakışması: gelen ${gelenSayi}, giden ${gidenSayi} (gelen 0 olmalı)`)
+  }
+
+  const toplam = VAKALAR.length + IG_VAKALAR.length + gidenVakalari.length + 1
   console.log('─'.repeat(72))
   console.log(`\n${gecen}/${toplam} vaka doğru çözüldü\n`)
 

@@ -53,8 +53,12 @@ const VAKALAR: Vaka[] = [
     olmamali: /(yalnızca|sadece)[^.\n]{0,20}komple[^.\n]{0,30}(yapıl|uygulan)/i,
   },
   {
-    ad: '2. Randevuda telefon istemiyor',
-    sikayet: '"İletişim numarasını istesin, size hemen dönüş sağlıyoruz desin"',
+    // ⚠ 15 Ağustos'ta bu vaka TERSİNE döndü. 12 Ağustos'ta Fatih Bey randevuda
+    // numara istenmesini istemişti; sahada görünce vazgeçti ("Numara istemesin
+    // demiştim, istiyor") — müşteri zaten WhatsApp'tan yazıyor, numarası belli.
+    // Vaka silinmedi, ölçtüğü şey değişti: artık numara İSTEMEMEK doğru davranış.
+    ad: '2. Randevuda gereksiz numara istemesi',
+    sikayet: '"Numara istemesin demiştim, istiyor" (15 Ağustos)',
     konusma: [
       { rol: 'musteri', metin: 'Bmw G20 komple ppf fiyatı nedir' },
       { rol: 'bot', metin: 'Komple PPF: XPEL Xtreme 100.000₺, Global PPF 75.000₺.' },
@@ -66,11 +70,10 @@ const VAKALAR: Vaka[] = [
     ],
     duzgun: [
       'Yarın için müsaitliğimizi kontrol edip size dönüş sağlıyoruz.',
-      'İletişim numaranızı paylaşırsanız hemen dönüş yapalım.',
+      'Sabah mı öğleden sonra mı sizin için uygun olur?',
     ],
     bozukYapili: { arac: 'BMW G20', niyet: 'randevu', fiyat_verilebilir_mi: false },
     olmamali: /aracınızı da yaz|marka.{0,15}model/i,
-    olmali: /numara|telefon/i,
   },
   {
     ad: '3. Bildiği aracı tekrar soruyor',
@@ -99,7 +102,7 @@ const VAKALAR: Vaka[] = [
     ],
     duzgun: [
       'Global seride komple kaplama 75.000₺, 5 yıl garanti ve 190 mikron koruma sunar.',
-      'Uygun görürseniz randevu için iletişim numaranızı paylaşın, hemen dönüş sağlayalım.',
+      'Uygun görürseniz hangi gün getirmeyi düşünürsünüz, ona göre planlayalım.',
     ],
     olmamali: /(kaput|ön\s*3|ön\s*4)[^.\n]{0,70}(yönlendir|paylaş|sun|ilet)/i,
   },

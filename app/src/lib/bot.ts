@@ -35,26 +35,23 @@ const GECMIS_SINIRI = 40
 const MESAI_DISI_KILIT_SAAT = 8
 
 /**
- * Yanıt motoru tamamen başarısız olduğunda müşteriye giden cümle.
- * Teknik hata anlatmaz, özür dilenip insana devredilir — müşteri açısından
- * cevapsız kalmakla ham hata görmek arasındaki fark budur.
+ * ⛔ ARTIK MÜŞTERİYE GÖNDERİLMİYOR (Fatih Bey, 15 Ağustos: "Bir de teknik bir
+ * arıza falan bunları yazmasın").
+ *
+ * Eskiden motor patlayınca bu cümle müşteriye giderdi; gerekçe "sessizlik en
+ * kötü sonuçtur" idi. Sahada tersi çıktı: müşteri işletmenin bozuk olduğunu
+ * öğrenmiş oluyor ve bu cümle bir kez değil arka arkaya gitti (bkz. 15 Ağustos
+ * döngüsü). Artık motor patladığında müşteriye HİÇBİR ŞEY yazılmaz; bunun
+ * yerine devir bayrağı düşer ve iş insana geçer. Ekip 15 dakika içinde
+ * yazmazsa devir kuralının nötr cümlesi ("Ekibimiz birazdan size dönüş
+ * yapacak") zaten gider — müşteri yine cevapsız kalmaz, ama teknik arıza
+ * anlatılmaz.
+ *
+ * Sabit, sahada kalmış eski mesajları teşhis sorgularında bulabilmek için
+ * duruyor; gönderim yolu kaldırıldı.
  */
 export const SON_CARE_METNI =
   'Kusura bakmayın, sistemimizde anlık bir aksaklık oldu. Ekibimiz birazdan size dönüş sağlayacak.'
-
-/**
- * Son çare cümlesi aynı yazışmaya bu süre içinde bir kez gider.
- *
- * ⚠ 15 Ağustos (Fatih Bey, ekran görüntüsü): aynı müşteriye 08:00'den itibaren
- * her 5 dakikada bir "Kusura bakmayın, sistemimizde anlık bir aksaklık oldu"
- * gitmiş. Sebep sabah kuyruğuydu: motor patlıyor, son çare cümlesi gidiyor ama
- * `mesai_bekliyor` bayrağı TEMİZLENMİYORDU, dolayısıyla konuşma kuyrukta
- * kalıyor ve cron her turda aynı hatayı tekrarlıyordu. İki koruma birden
- * kondu: bayrak hata yolunda da temizleniyor (asıl düzeltme) ve son çare
- * cümlesi süre kilidine bağlandı (ikinci savunma — kuyruk dışı bir yol aynı
- * döngüyü kurarsa müşteri yine spam yemesin).
- */
-const SON_CARE_KILIT_SAAT = 6
 
 export type BotSonuc =
   | {
@@ -72,8 +69,9 @@ export type BotSonuc =
        * devir = ekip devraldı, bot susar. kapali = bot ayarlardan kapalı.
        * mesai-sessiz = mesai dışı ve bilgilendirme bu gece zaten yapıldı.
        * hata = motor patladı.
+       * cevapsiz = konuşmanın sonunda cevaplanacak müşteri mesajı yok.
        */
-      sebep: 'devir' | 'kapali' | 'mesai-sessiz' | 'hata'
+      sebep: 'devir' | 'kapali' | 'mesai-sessiz' | 'hata' | 'cevapsiz'
       mesaj: string
     }
 
@@ -206,6 +204,32 @@ export async function botCevapla(
     return { tamam: false, sebep: 'hata', mesaj: 'Konuşmada modele verilecek mesaj yok.' }
   }
 
+  // ⛔ KÖK SEBEP KİLİDİ (15 Ağustos). Konuşmanın sonunda cevaplanacak bir
+  // müşteri mesajı yoksa modele HİÇ gidilmez.
+  //
+  // Sahada olan: gece bayrağı kurulmuş bir yazışmayı sabah kuyruğu yeniden
+  // işlemeye kalktı, ama müşterinin son mesajı zaten cevaplanmıştı — geçmiş bot
+  // mesajıyla bitiyordu. Anthropic bunu "assistant message prefill" sayıp 400
+  // döndürdü ("The conversation must end with a user message"), motor patladı,
+  // son çare cümlesi gitti ve döngü kuruldu. Aynı 400 webhook yolunda da iki
+  // kez görüldü (yarış durumunda bot mesajı en sona düştüğünde).
+  //
+  // Bu durum bir HATA değil, "yapacak iş yok" hâlidir: sessizce dönülür,
+  // müşteriye hiçbir şey yazılmaz, ekibe uyarı gitmez.
+  if (gecmis[gecmis.length - 1].rol !== 'musteri') {
+    // Yazışma sabah kuyruğunda takılı kalmasın.
+    if (konusmaMeta.mesai_bekliyor) {
+      const kalan = { ...konusmaMeta }
+      delete kalan.mesai_bekliyor
+      await db.from('conversations').update({ meta: kalan as Json }).eq('id', konusmaId)
+    }
+    return {
+      tamam: false,
+      sebep: 'cevapsiz',
+      mesaj: 'Konuşmanın sonunda cevaplanacak müşteri mesajı yok, bot yazmadı.',
+    }
+  }
+
   let yanit
   try {
     yanit = await yanitUret({
@@ -229,10 +253,10 @@ export async function botCevapla(
     const hata = e instanceof Error ? e.message : 'motor hatası'
     await sistemUyarisi('Yanıt motoru cevap üretemedi', `Konuşma: ${konusmaId}\n${hata}`)
 
-    // ⚠ 12 Ağustos: model boş cevap döndürdüğünde müşteri HİÇBİR ŞEY görmüyordu
-    // (Fatih Bey'in test ekranında ham hata metni çıktı). Motor patlasa bile
-    // müşteriye insan gibi bir cümle gider ve ekibe devir bayrağı düşer —
-    // sessizlik en kötü sonuçtur.
+    // Motor patladı: müşteriye TEKNİK HİÇBİR ŞEY yazılmaz (Fatih Bey, 15
+    // Ağustos). Yapılan tek şey işi insana geçirmek — devir bayrağı düşer,
+    // Telegram uyarısı gider, ekip 15 dk içinde yazmazsa devir kuralının nötr
+    // cümlesi devreye girer. Gerekçe SON_CARE_METNI'nin başında.
     try {
       const { data: guncelKonusma } = await db
         .from('conversations')
@@ -240,16 +264,6 @@ export async function botCevapla(
         .eq('id', konusmaId)
         .maybeSingle()
       const meta = (guncelKonusma?.meta ?? {}) as Record<string, unknown>
-
-      // Son çare cümlesi bu yazışmaya yakın zamanda zaten gitti mi.
-      const oncekiSonCare = meta.son_care_at
-      const sonCareKilitli =
-        typeof oncekiSonCare === 'string' &&
-        simdi.getTime() - new Date(oncekiSonCare).getTime() < SON_CARE_KILIT_SAAT * 3600_000
-
-      if (!sonCareKilitli) {
-        await gidenMesajGonder(konusmaId, SON_CARE_METNI, 'bot')
-      }
 
       // ⛔ Bayrağı hata yolunda da temizle. Bunu atlamak, sabah kuyruğunun aynı
       // konuşmayı her 5 dakikada bir yeniden denemesi demekti (15 Ağustos hatası).
@@ -262,15 +276,14 @@ export async function botCevapla(
         .update({
           meta: {
             ...kalanMeta,
-            ...(sonCareKilitli ? {} : { son_care_at: simdi.toISOString() }),
             ...(meta.devir_bayrak_at ? {} : { devir_bayrak_at: simdi.toISOString() }),
           } as Json,
         })
         .eq('id', konusmaId)
     } catch (ikincil) {
-      // Buraya düşmek "müşteri hiçbir şey görmedi" demektir — en ağır durum,
-      // izi Vercel loguyla birlikte kaybolmamalı.
-      await hataKaydet('bot', 'son çare cevabı da gönderilemedi', ikincil, konusmaId)
+      // Buraya düşmek "ekibe devir bayrağı bile düşmedi" demektir — müşteri
+      // cevapsız kalır ve kimsenin haberi olmaz. İzi kaybolmamalı.
+      await hataKaydet('bot', 'motor hatasından sonra devir bayrağı düşmedi', ikincil, konusmaId)
     }
 
     return { tamam: false, sebep: 'hata', mesaj: hata }

@@ -264,13 +264,6 @@ function hafifEksikleriKodlaDuzelt(
     sonuc = tekrarSatirlariniAt(sonuc, new Set(fiyatRakamlariniBul(baglam.oncekiBotMetni ?? '')))
   }
 
-  // Randevuda telefon istememe: eksik olan tek bir cümle, sonuna eklenir.
-  // Fatih Bey'in birebir isteği (12 Ağustos): "iletişim numarasını istesin,
-  // size hemen dönüş sağlıyoruz desin".
-  if (adlar.has('randevuda-telefon-yok')) {
-    sonuc = [...sonuc, 'İletişim numaranızı paylaşırsanız size hemen dönüş sağlayalım.']
-  }
-
   // Önceki turda AYNEN söylenmiş cümleyi tekrar etmek (Fatih Bey: "sürekli aynı
   // şekilde tekrarlıyor"). Tekrar eden cümleyi ATMAK için modele ihtiyaç yok.
   if (adlar.has('cumle-tekrari')) {
@@ -576,26 +569,15 @@ export function eksikleriBul(
     })
   }
 
-  // 2c-2) Randevu/uygunluk sorusunda TELEFON iste.
-  //       Fatih Bey, 12 Ağustos: "bu noktada iletişim numarasını istesin, size
-  //       hemen dönüş sağlıyoruz desin". Prompt kuralı vardı ama kilidi yoktu;
-  //       uçtan uca sınavda bot saat sorup bıraktı ve kusur müşteriye gitti.
-  const randevuSorusu =
-    yapili.niyet === 'randevu' ||
-    /boşlu[ğg]unuz|müsait mi|uygun mu|yarın gelebilir|ne zaman gelebilir|randevu/i.test(
-      baglam.sonMusteriMetni ?? '',
-    )
-  const telefonIstendi = /numara|telefon/i.test(tumMetin)
-
-  if (randevuSorusu && !telefonIstendi) {
-    eksikler.push({
-      ad: 'randevuda-telefon-yok',
-      talimat:
-        'Müşteri randevu/uygunluk sordu. Saat sorup bırakma — iletişim numarasını iste ve ' +
-        'dönüş sözü ver. Birebir kalıp: "İletişim numaranızı paylaşırsanız size hemen dönüş ' +
-        'sağlıyoruz." Bildiğin aracı tekrar sorma.',
-    })
-  }
+  // 2c-2) ⛔ KALDIRILDI (Fatih Bey, 15 Ağustos: "Numara istemesin demiştim, istiyor").
+  //       12 Ağustos'ta tersi istenmişti ve buraya bir kilit yazılmıştı: randevu
+  //       konuşulan her turda bot iletişim numarası istiyordu. Sahada saçma
+  //       kaçtı — müşteri zaten WhatsApp'tan yazıyor, numarası ekranın tepesinde
+  //       duruyor. Instagram'da da gerek yok: orada müşteri zaten WhatsApp'a
+  //       yönlendiriliyor (14 Ağustos kararı).
+  //
+  //       Kilit kaldırıldı, prompt kuralları da temizlendi. Yeni bir kural
+  //       yazılmıyor: numara istemek yasak değil, sadece ZORUNLU değil.
 
   // 2d) Komple isteyene kısmi seçenek sunma.
   //     Fatih Bey, 12 Ağustos: "komple olana 4 parça sunuyor". Müşteri kararını

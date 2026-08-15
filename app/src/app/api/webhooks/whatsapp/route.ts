@@ -17,6 +17,8 @@
 import { after, NextResponse } from 'next/server'
 import { whatsappKanal } from '@/lib/channels/whatsapp'
 import { gelenleriIsle } from '@/lib/gelen-tur'
+import { hataKaydet } from '@/lib/hata-log'
+import { ekipElleYazdiginiIsle } from '@/lib/mesajlar'
 
 export const runtime = 'nodejs'
 
@@ -53,8 +55,25 @@ export async function POST(req: Request) {
     after(() => gelenleriIsle('wa-webhook', mesajlar))
   }
 
+  // İşletme hattından ÇIKAN mesajlar. Bot tetiklenmez — tam tersi, susturulur:
+  // ekip telefondan cevap yazdıysa yazışma devre geçer (Fatih Bey, 15 Ağustos:
+  // "Biz mesaja cevap verdikten sonra bot devreden çıksın"). Botun kendi
+  // gönderdiği mesaj da buraya düşer; ayrımı ekipElleYazdiginiIsle yapıyor.
+  const gidenler = whatsappKanal.gidenEkipMesajiCoz?.(yuk) ?? []
+  if (gidenler.length > 0) {
+    after(async () => {
+      for (const giden of gidenler) {
+        try {
+          await ekipElleYazdiginiIsle(giden)
+        } catch (e) {
+          await hataKaydet('wa-webhook', 'ekip mesajı işlenemedi', e)
+        }
+      }
+    })
+  }
+
   // Her hâlükârda 200: hata dönersek Evolution'ın yeniden deneme kuyruğu şişer.
-  return NextResponse.json({ tamam: true, mesaj: mesajlar.length })
+  return NextResponse.json({ tamam: true, mesaj: mesajlar.length, giden: gidenler.length })
 }
 
 /**

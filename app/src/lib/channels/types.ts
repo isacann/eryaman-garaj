@@ -48,6 +48,31 @@ export type GelenMesaj = {
   ham: Json
 }
 
+/**
+ * İşletme hattından ÇIKAN bir mesaj (webhook'ta `fromMe: true`).
+ *
+ * ⚠ 15 Ağustos (Fatih Bey): "Biz mesaja cevap verdikten sonra bot devreden
+ * çıksın." Panelden yazıldığında bu zaten oluyordu, ama Fatih Bey çoğunlukla
+ * TELEFONDAN, WhatsApp uygulamasının kendisinden yazıyor. O mesaj webhook'a
+ * `fromMe: true` olarak düşüyor ve sonsuz döngü koruması onu tamamen atıyordu —
+ * yani sistem ekibin devraldığını hiç öğrenemiyor, bot yazmaya devam ediyordu.
+ *
+ * Bu tip o boşluğu kapatır: giden mesaj müşteri mesajı olarak İŞLENMEZ (döngü
+ * koruması aynen durur), ama "ekip elle yazdı" sinyali olarak taşınır.
+ *
+ * `hariciId` şart: botun kendi gönderdiği mesaj da `fromMe: true` geliyor.
+ * Ayrım, mesaj kimliğinin veritabanında giden mesaj olarak kayıtlı olup
+ * olmadığına bakılarak yapılır (bkz. lib/mesajlar.ts / ekipElleYazdiMi).
+ */
+export type GidenEkipMesaji = {
+  kanal: KanalAdi
+  /** Karşı tarafın kanal kimliği — hangi yazışma olduğunu bulmak için. */
+  kanalKimlik: string
+  hariciId: string | null
+  metin: string | null
+  zaman: string
+}
+
 export type GonderimSonucu =
   | { basarili: true; hariciId: string | null }
   | { basarili: false; hata: string }
@@ -87,6 +112,18 @@ export interface Kanal {
    * Mesaj olmayan olaylar (durum bildirimi, okundu bilgisi) boş dizi döndürür.
    */
   gelenMesajiCoz(payload: unknown): GelenMesaj[]
+
+  /**
+   * Webhook yükünden İŞLETME HATTINDAN ÇIKAN mesajları çıkarır.
+   *
+   * `gelenMesajiCoz` ile aynı yükten beslenir ama tamamen ayrı iş yapar: o
+   * müşteri mesajlarını verir (ve giden olanları eler), bu ise yalnızca giden
+   * olanları verir. İkisi asla aynı mesajı döndürmez.
+   *
+   * Amacı botu tetiklemek DEĞİL, susturmaktır: ekip telefondan yazdıysa
+   * yazışma devre geçer. Desteklemeyen kanal boş dizi döndürür.
+   */
+  gidenEkipMesajiCoz?(payload: unknown): GidenEkipMesaji[]
 }
 
 export class KanalHatasi extends Error {

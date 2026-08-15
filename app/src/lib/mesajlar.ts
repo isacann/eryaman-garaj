@@ -7,8 +7,9 @@
 import 'server-only'
 
 import { kanalAl, type GelenMesaj } from '@/lib/channels'
+import type { GidenEkipMesaji } from '@/lib/channels/types'
 import { supabaseServis } from '@/lib/supabase/sunucu'
-import type { Json, MesajGonderen } from '@/lib/db/types'
+import { RANDEVU_HATIRLATMA, type Json, type MesajGonderen } from '@/lib/db/types'
 
 /** Meta müşteri hizmetleri penceresi: müşterinin son mesajından sonra 24 saat. */
 export const PENCERE_SAAT = 24
@@ -217,4 +218,100 @@ export async function gidenMesajGonder(
   })
 
   return { konusmaId, mesajId: mesaj.id, tekrar: false }
+}
+
+/**
+ * Ekip WhatsApp uygulamasından elle cevap yazdıysa yazışmayı devre alır ve
+ * botu susturur.
+ *
+ * ⚠ 15 Ağustos (Fatih Bey): "Biz mesaja cevap verdikten sonra bot devreden
+ * çıksın." Panelden yazıldığında bu zaten oluyordu (sohbet eylemleri devir
+ * damgası atıyor), ama Fatih Bey çoğunlukla telefondan yazıyor. O mesaj
+ * webhook'a `fromMe: true` düşüyor, sonsuz döngü koruması onu atıyordu ve
+ * sistem devralmayı hiç öğrenemiyordu — bot yazmaya devam ediyordu.
+ *
+ * ⛔ AYIRT ETME. Botun kendi gönderdiği mesaj da `fromMe: true` gelir. Onu
+ * ekip mesajı sanmak felaket olurdu: bot her cevabından sonra kendini devre
+ * alır ve bir daha hiç yazmazdı. Ayrım mesaj kimliğinden yapılır — bot
+ * gönderirken Evolution'ın döndürdüğü `key.id`'yi `harici_id` olarak
+ * kaydediyor. Kimlik tabloda varsa mesaj bizim sistemimizden çıkmıştır.
+ *
+ * Şüphede olduğu her yerde HİÇBİR ŞEY YAPMAZ: kimlik yoksa, kişi/konuşma
+ * bulunamazsa, yazışma zaten devirdeyse sessizce döner.
+ */
+export async function ekipElleYazdiginiIsle(
+  giden: GidenEkipMesaji,
+): Promise<{ devralindi: boolean; sebep: string }> {
+  const db = supabaseServis()
+
+  if (!giden.hariciId) return { devralindi: false, sebep: 'kimlik yok' }
+
+  // 1. Bu mesajı biz mi gönderdik? Kimlik tabloda varsa evet — dokunma.
+  const { data: bizimMesaj } = await db
+    .from('messages')
+    .select('id')
+    .eq('harici_id', giden.hariciId)
+    .limit(1)
+    .maybeSingle()
+  if (bizimMesaj) return { devralindi: false, sebep: 'sistemden gönderildi' }
+
+  // 2. Hangi yazışma. Kişi yoksa konuşma da yoktur; ekip yeni bir sohbet
+  //    başlatmışsa bot zaten o yazışmayı bilmiyor, devralınacak bir şey yok.
+  const { data: kisi } = await db
+    .from('contacts')
+    .select('id')
+    .eq('kanal', giden.kanal)
+    .eq('kanal_kimlik', giden.kanalKimlik)
+    .maybeSingle()
+  if (!kisi) return { devralindi: false, sebep: 'kişi bulunamadı' }
+
+  const { data: konusma } = await db
+    .from('conversations')
+    .select('id, durum')
+    .eq('contact_id', kisi.id)
+    .order('son_mesaj_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!konusma) return { devralindi: false, sebep: 'konuşma bulunamadı' }
+
+  // 3. Mesajı yazışmaya işle ki panelde de görünsün — ekip telefondan yazdığını
+  //    panelde göremezse iki ekran birbirini tutmaz.
+  await db.from('messages').insert({
+    conversation_id: konusma.id,
+    yon: 'giden',
+    gonderen: 'ekip',
+    metin: giden.metin,
+    harici_id: giden.hariciId,
+    meta: { kaynak: 'telefondan-elle' } as Json,
+  })
+
+  if (konusma.durum === 'devir') return { devralindi: false, sebep: 'zaten devirde' }
+  if (konusma.durum === 'kapali') return { devralindi: false, sebep: 'yazışma kapalı' }
+
+  // 4. Devir: bot susar.
+  await db
+    .from('conversations')
+    .update({ durum: 'devir', devir_at: giden.zaman })
+    .eq('id', konusma.id)
+
+  // Bekleyen takip merdiveni iptal edilir: ekip devraldıysa bot "listemize
+  // bakabildiniz mi" diye araya girmemeli. Randevu hatırlatması hariç — o,
+  // ekip devralsa bile geçerli kalır (bkz. lib/takip.ts).
+  //
+  // ⚠ takipleriIptalEt burada ÇAĞRILMIYOR: takip.ts bu dosyadan
+  // gidenMesajGonder alıyor, çağırmak döngüsel bağımlılık kurardı.
+  await db
+    .from('followups')
+    .update({ durum: 'iptal', meta: { sebep: 'ekip-telefondan-yazdi' } as Json })
+    .eq('conversation_id', konusma.id)
+    .eq('durum', 'beklemede')
+    .neq('basamak', RANDEVU_HATIRLATMA)
+
+  await db.from('activity_log').insert({
+    aktor: 'ekip',
+    tip: 'devir',
+    payload: { konusma_id: konusma.id, kaynak: 'telefondan-elle' } as Json,
+  })
+
+  return { devralindi: true, sebep: 'ekip telefondan yazdı' }
 }
