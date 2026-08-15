@@ -27,6 +27,7 @@ type Vaka = {
   oncekiBotMetni?: string
   sonMusteriMetni?: string
   tumMusteriMetni?: string
+  uzunAradanSonraMi?: boolean
 }
 
 const TEMEL: YapiliCikti = {
@@ -46,6 +47,62 @@ const TEMEL: YapiliCikti = {
 } as YapiliCikti
 
 const VAKALAR: Vaka[] = [
+  // ── Fatih Bey, 15 Ağustos: dönen müşteri selamı ──────────────────────────
+  {
+    ad: 'donen-selamsiz',
+    kaynak: 'Dönen müşteriye selamsız dalış; prompt istisnayı iki vurguya rağmen uygulamadı',
+    bekleniyor: 'donen-selamsiz',
+    mesajlar: ['Tabii, XPEL HP Serisi 5 cam komple 11.000₺.'],
+    yapiliEzme: { fiyat_verilebilir_mi: true },
+    uzunAradanSonraMi: true,
+    sonMusteriMetni: 'Merhaba, karar verdim XPEL olsun',
+  },
+  {
+    ad: 'donen-selamsiz (yanlış alarm — selam zaten var)',
+    kaynak: 'Model selamı kendisi kurduysa kilit dokunmamalı',
+    bekleniyor: null,
+    mesajlar: [
+      'Merhabalar Hasan bey, tekrar hoşgeldiniz 😊',
+      'XPEL HP Serisi 5 cam komple 11.000₺. Hangi gün uygun olur?',
+    ],
+    yapiliEzme: { fiyat_verilebilir_mi: true },
+    uzunAradanSonraMi: true,
+    sonMusteriMetni: 'Merhaba, karar verdim XPEL olsun',
+  },
+  // ── Fatih Bey, 15 Ağustos: "bot kendini aşağılıyor burda" (Barkın vakası) ──
+  {
+    ad: 'sikayete-satis-cevabi',
+    kaynak: 'Sahada: "cam filmi kalmış" diyen müşteriye fiyat listesi gitti',
+    bekleniyor: 'sikayete-satis-cevabi',
+    mesajlar: [
+      'Cam filmi seçeneklerimiz:\n• XPEL HP Serisi – 11.000₺\n• Global – 7.500₺',
+    ],
+    sonMusteriMetni: 'Arka kelebek camlardaki cam filmi kalmış',
+    tumMusteriMetni: 'Arka kelebek camlardaki cam filmi kalmış',
+  },
+  {
+    ad: 'sikayete-satis-cevabi (yanlış alarm — doğru şikayet cevabı)',
+    kaynak: 'Rakamsız sahiplenme cevabı kilide takılmamalı',
+    bekleniyor: null,
+    mesajlar: [
+      'Bu durumu ilettiğiniz için teşekkür ederiz, hemen ilgileniyoruz.',
+      'Uygun olduğunuz bir gün aracınıza bakalım, hemen çözelim. Hangi gün getirebilirsiniz?',
+    ],
+    yapiliEzme: { fiyat_verilebilir_mi: false, devir_gerekli_mi: true, devir_sebebi: 'sikayet' },
+    sonMusteriMetni: 'Arka camlarda kabarma olmuş',
+    tumMusteriMetni: 'Arka camlarda kabarma olmuş',
+  },
+  {
+    ad: 'sikayete-satis-cevabi (yanlış alarm — normal fiyat sorusu)',
+    kaynak: '"kalmış" kelimesi geçmeyen normal satış turu etkilenmemeli',
+    bekleniyor: null,
+    mesajlar: [
+      'Komple PPF seçeneklerimiz:\n• XPEL Xtreme PPF – 100.000₺ (190 mikron, 5 yıl garanti, üstün parlaklık)',
+      'Hangi seride ilerlemek istersiniz?',
+    ],
+    sonMusteriMetni: 'komple ppf fiyatı nedir',
+    tumMusteriMetni: 'BMW G20 komple ppf fiyatı nedir',
+  },
   // ── Fatih Bey, 15 Ağustos: "son mesajdan sonra kalmış öylece" ────────────
   {
     ad: 'fiyat-kapanissiz',
@@ -283,6 +340,7 @@ function kosVaka(v: Vaka): { gecti: boolean; ayrinti: string } {
     oncekiBotMetni: v.oncekiBotMetni ?? '',
     sonMusteriMetni: v.sonMusteriMetni ?? '',
     tumMusteriMetni: v.tumMusteriMetni ?? v.sonMusteriMetni ?? '',
+    uzunAradanSonraMi: v.uzunAradanSonraMi,
   })
 
   const adlar = eksikler.map((e) => e.ad)

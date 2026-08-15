@@ -285,6 +285,9 @@ function hafifEksikleriKodlaDuzelt(
   const isim = baglam.isim?.trim()
   if (adlar.has('selamlama-isim') && isim) sonuc = selamlamaEkle(sonuc, isim)
 
+  // Dönen müşteri selamı deterministik kurulur.
+  if (adlar.has('donen-selamsiz')) sonuc = donenSelamiEkle(sonuc, baglam.isim ?? null)
+
   // Kapanış sorusu: tek cümle, deterministik olarak eklenebilir. Model
   // çağırmak 40+ saniye; müşteriyi bunun için bekletmeye değmez.
   if (adlar.has('fiyat-kapanissiz')) {
@@ -334,6 +337,21 @@ function selamlamaEkle(mesajlar: string[], isim: string): string[] {
   }
 
   return [selam, ...kalan]
+}
+
+/**
+ * Dönen müşteri selamı: "Merhabalar X bey, tekrar hoşgeldiniz 😊".
+ *
+ * NEDEN KOD (15 Ağustos): prompt bloğu iki kez güçlendirildi, model yine de
+ * selamsız daldı — "selamlama yazma" genel kuralı istisnayı eziyor. Bilinen
+ * ders: kritik kural üç katmanlı (prompt + düzeltme + kod); son katman bu.
+ */
+function donenSelamiEkle(mesajlar: string[], isim: string | null): string[] {
+  const ilk = mesajlar[0] ?? ''
+  if (/merhaba|hoşgeldin|hoş geldin|selam/i.test(ilk)) return mesajlar
+  const hitap = isim ? hitapCoz(isim) : null
+  const kim = isim ? ` ${isim}${hitap ? ` ${hitap}` : ''}` : ''
+  return [`Merhabalar${kim}, tekrar hoşgeldiniz 😊`, ...mesajlar]
 }
 
 const UNISEX_ISIMLER = new Set([
@@ -405,6 +423,8 @@ export function eksikleriBul(
      * panelden eklediği bilgi ve kampanyalarda geçenler.
      */
     ekIzinliRakamlar?: Set<string>
+    /** Dönen müşteri turu (bkz. YanitGirdi.uzunAradanSonraMi). */
+    uzunAradanSonraMi?: boolean
   },
 ): Eksik[] {
   const eksikler: Eksik[] = []
@@ -669,6 +689,47 @@ export function eksikleriBul(
     })
   }
 
+  // 2c-5) Dönen müşteriye selamsız dalma (Fatih Bey, 15 Ağustos: eski müşteri
+  //       tanınmalı). Prompt istisna kuralını iki vurguya rağmen uygulamadı;
+  //       eksik hafif — model turu tutmazsa kod deterministik ekliyor.
+  if (
+    baglam.uzunAradanSonraMi &&
+    !/merhaba|hoşgeldin|hoş geldin|selam/i.test(ilkMesaj)
+  ) {
+    eksikler.push({
+      ad: 'donen-selamsiz',
+      talimat:
+        'Bu müşteri aradan uzun süre sonra döndü. İlk cümlen kısa bir selam olsun: ' +
+        '"Merhabalar [isim] bey, tekrar hoşgeldiniz 😊". Sonra cevabına devam et.',
+    })
+  }
+
+  // 2c-4) ⛔ ŞİKAYETE SATIŞ CEVABI (Fatih Bey, 15 Ağustos — Barkın vakası).
+  //       Müşteri "arka kelebek camlardaki cam filmi kalmış" diye YAPILMIŞ işle
+  //       ilgili sorun bildirdi; bot fiyat listesi ve kampanya diliyle cevap
+  //       verdi. Fatih Bey: "bot kendini aşağılıyor burda".
+  //
+  //       Şikayet tespiti dar tutuldu: geçmiş işe işaret eden fiil kalıpları.
+  //       ("kalmış", "sökülmemiş", "kabarma olmuş"...) Genel "şikayet" kelimesi
+  //       de sayılır. Yanlış alarm riski düşük çünkü ceza yalnızca RAKAM
+  //       yazıldığında kesiliyor — şikayet konuşmasında rakamın işi yok.
+  const sikayetMetni = `${baglam.tumMusteriMetni ?? ''} ${baglam.sonMusteriMetni ?? ''}`
+  const sikayetVar =
+    /şikayet|sikayet|kalm[ıi][şs]|s[öo]k[üu]lmem[ıi][şs]|kabarma|kabarm[ıi][şs]|[çc]izik\s*([çc][ıi]km[ıi][şs]|olu[şs]mu[şs])|yanl[ıi][şs] yap[ıi]lm[ıi][şs]|d[üu]zg[üu]n olmam[ıi][şs]|memnun kalmad/i.test(
+      sikayetMetni,
+    )
+  if (sikayetVar && /\d[\d.]{2,}\s*(₺|tl)/i.test(tumMetin)) {
+    eksikler.push({
+      ad: 'sikayete-satis-cevabi',
+      agir: true,
+      talimat:
+        'Müşteri YAPILMIŞ bir işle ilgili sorun bildiriyor; bu bir satış konuşması değil. ' +
+        'Cevabından TÜM rakamları ve fiyat listesini çıkar. Sahiplen ("bu durumu ilettiğiniz ' +
+        'için teşekkür ederiz, hemen ilgileniyoruz"), aracı ne zaman getirebileceğini sor, ' +
+        'devir_gerekli_mi alanını true ve devir_sebebi alanını "sikayet" yap.',
+    })
+  }
+
   // 2d) Komple isteyene kısmi seçenek sunma.
   //     Fatih Bey, 12 Ağustos: "komple olana 4 parça sunuyor". Müşteri kararını
   //     vermişken aşağı çekmek satışı bozuyor.
@@ -909,6 +970,7 @@ export async function yanitUret(
     simdi: girdi.simdi,
     gorselVarMi: gorseller.length > 0,
     ilkCevapMi,
+    uzunAradanSonraMi: girdi.uzunAradanSonraMi,
     // Araca özel paket içeriğini filtrelemek için konuşmanın tamamı gerekiyor.
     konusmaMetni: girdi.konusma.map((m) => m.metin).join('\n'),
     egitim: girdi.egitim,
@@ -920,6 +982,7 @@ export async function yanitUret(
 
   const denetimBaglami = {
     ilkCevapMi,
+    uzunAradanSonraMi: girdi.uzunAradanSonraMi,
     isim: girdi.kisiAdi,
     oncekiBotMetni: girdi.konusma
       .filter((m) => m.rol === 'bot')
@@ -1051,6 +1114,10 @@ export async function yanitUret(
 
   if (isim && kalan.some((e) => e.ad === 'selamlama-isim')) {
     mesajlar = selamlamaEkle(mesajlar, isim)
+  }
+
+  if (kalan.some((e) => e.ad === 'donen-selamsiz')) {
+    mesajlar = donenSelamiEkle(mesajlar, isim ?? null)
   }
 
   // Unisex isimde hitap: düzeltme turu 3 koşudan 1'inde yine "Deniz bey" yazdı.

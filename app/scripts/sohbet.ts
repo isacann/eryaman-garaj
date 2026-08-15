@@ -35,6 +35,9 @@ const argv = process.argv.slice(2)
 const jsonMu = argv.includes('--json')
 const adBayragi = argv.find((a) => a.startsWith('--ad='))
 const kisiAdi = adBayragi ? adBayragi.slice('--ad='.length) : undefined
+// --donen: dönen müşteri senaryosu (geçmiş var, uzun ara verilmiş).
+// --gecmis="metin|rol;..." ile eski konuşma enjekte edilebilir.
+const donenMu = argv.includes('--donen')
 const mesajlar = argv.filter((a) => !a.startsWith('--'))
 
 if (mesajlar.length === 0) {
@@ -58,7 +61,10 @@ async function main() {
     // yanitUret üzerinden: üretimde bot.ts bu yolu kullanıyor ve zorunlu-parça
     // düzeltme turu burada devreye giriyor. Sağlayıcıyı doğrudan çağırmak
     // gerçek davranışı test etmiyordu.
-    const yanit = await yanitUret({ konusma, kisiAdi, simdi: new Date() }, saglayici)
+    const yanit = await yanitUret(
+      { konusma, kisiAdi, simdi: new Date(), uzunAradanSonraMi: donenMu },
+      saglayici,
+    )
     konusma.push({ rol: 'bot', metin: yanit.metin })
 
     const bayraklar = bayraklariBul(yanit.metin, {

@@ -51,7 +51,7 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Çalışma saati | 08:00 – 01:00 tam çalışır. 01:00–08:00 arası tek "mesai dışındayız" mesajı, sabah devam eder |
 | Proaktif sessiz saat | **22:00 – 08:00.** Botun KENDİ başlattığı mesaj (takip merdiveni + randevu hatırlatması) bu aralıkta gitmez, sabah 08:00'e kaydırılır. Gelen mesaja cevap yine 01:00'e kadar sürer — ikisi ayrı pencere (15 Ağustos) |
 | Fiyatla açma | **YASAK.** *"Müşteri genelde fiyat soruyor, akıcı bir sohbetten sonra en son fiyat verilebilir"* |
-| Fiyat sırası | **kapsam** (kaç parça / kaç cam) → fiyat. Araç şartı yok, standart fiyatlandırma |
+| Fiyat sırası | **kapsam** (kaç parça / kaç cam) → fiyat. Araç şartı yok, standart fiyatlandırma. ⚠ 15 Ağustos'a kadar promptta bununla çelişen ÜÇ eski kural yaşıyordu ("ilk cevapta asla rakam yok", "araç belli değilse rakam yok") — model hangisini okursa ona göre davranıyordu; **"tavrı sürekli değişiyor" şikayetinin ana kaynağı buydu.** Temizlendi; tek kural: kapsam + fiyat sorusu → fiyat verilir, ilk cevapta bile |
 | SUV/binek farkı | Rakamlar standart, bot araca göre fiyat değiştirmez. *"SUV modellerimiz için fiyatlarda değişkenlik gösterebiliyor"* diyebilir; **"fark yok" diyemez** |
 | İlk cevapta rakam | **Kod kilidi var.** Kapsam belli değilse ilk turda rakam ve görsel yok; içerik anlatılır |
 | Fiyat cevabı biçimi | Serilerin **tamamı** `• ürün – garanti: fiyat` diye listelenir → fiyat/performans önerisi (Xtreme) → pakete dahiller → kapanış sorusu |
@@ -69,6 +69,8 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Randevu hatırlatması | Randevudan **24 saat önce**; o an geçmişse randevu günü **10:00**, o da geçmişse **2 saat önce**; randevuya 2 saatten az kaldıysa gönderilmez |
 | Instagram'da randevu | Müşteri **WhatsApp'a yönlendirilir** (0531 734 26 59). Sebep: Instagram'da 24 saat penceresi duruyor, hatırlatma her zaman gönderilemiyor. Bir kez söylenir, ısrar edilmez |
 | Takip merdiveni | **3. saat** → **20. saat**, ikisi de ücretsiz. 14 Ağustos: 20 dakikalık basamak kaldırıldı (fazla ısrarcı), 25. saat şablon basamağı da kaldırıldı (Evolution'da Meta şablonu ve 24 saat penceresi yok) |
+| Şikayet / yapılmış iş | Müşteri yapılmış işle ilgili sorun bildirirse ("cam filmi kalmış", "kabarma olmuş") **satış dili yasak**: sahiplenme + özür + araç ne zaman gelir sorusu, devir_sebebi='sikayet', Telegram bildirimi. Kod kilidi: `sikayete-satis-cevabi` (15 Ağustos, Barkın vakası) |
+| Dönen müşteri | Son yazışmanın üzerinden 24 saat+ geçtiyse bot kısa selamla açar ("tekrar hoşgeldiniz 😊") ve geçmişi hatırlayarak konuşur. Kod kilidi: `donen-selamsiz` — prompt istisnayı iki vurguya rağmen uygulamadı, selam kodla kuruluyor (15 Ağustos) |
 | Ekip elle cevap yazarsa | Bot susar. **Panelden de, telefondan WhatsApp uygulamasından da** — ikisi de yazışmayı devre alır (15 Ağustos) |
 | Motor patlarsa | Müşteriye **teknik hiçbir şey yazılmaz** (15 Ağustos). Devir bayrağı düşer, ekip 15 dk yazmazsa nötr cümle gider |
 | Bildirim | Telegram. Randevu / devir / sıcak müşteri anlık; gece gelenler sabaha ertelenir |
@@ -85,6 +87,7 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 
 ### Arşivler
 - `arsiv/whatsapp.json` + `.md` — **904 sohbet, 4.841 mesaj**, 781'i gerçek yazışma. Mayıs–Ağustos 2026, zaman damgalı
+  ✅ **15 Ağustos: arşiv canlı veritabanına aktarıldı** (`app/scripts/arsiv-aktar.mjs`): 678 sohbet / 3.972 mesaj — başlığı telefon olan sohbetler contacts+conversations+messages'a yazıldı, `meta.kaynak='arsiv'`. Eski müşteri yazınca webhook aynı telefonu bulur ve bot geçmişi görür. İsimle kayıtlı 124 sohbet aktarılamadı (telefon bilinmiyor). Geri al: `--geri-al` · İdempotent (`harici_id: arsiv-wa-<tel>-<n>`)
 - `arsiv/instagram-dm.json` + `.md` — **241 sohbet, 901 satır** (Primary kutusu)
 - `arsiv/wa-isimler.json`, `arsiv/ig-isimler.json` — tam isim listeleri
 
@@ -137,7 +140,7 @@ Uygulamanın hiçbir yeri doğrudan WhatsApp'a ya da Instagram'a bağlanmaz; her
 ⚠ Müşteri adı promptun **sonunda** olmalı; başta olduğu sürece önbellek her müşteride kırılıyordu (hit oranı 0).
 
 ### Zorunlu-parça kilidi
-Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bir düzeltme turuyla** yeniden çağrılır. Kurallardan bazıları: `selamlama-isim`, `fiyat-listesi-eksik`, `liste-tekrari`, `kapsamsiz-ilk-fiyat`, `kapsama-dahil-kalem-fiyati`, `arac-tekrar-soruldu`, `cumle-tekrari`, `kuru-acilis`, `ozelliksiz-liste`, `kompleye-kismi-teklifi`, `fiyati-araca-bagladi`, `renk-degisiminde-fiyat`. (`randevuda-telefon-yok` **15 Ağustos'ta kaldırıldı** — Fatih Bey numara istenmesinden vazgeçti.)
+Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bir düzeltme turuyla** yeniden çağrılır. Kurallardan bazıları: `selamlama-isim`, `fiyat-listesi-eksik`, `liste-tekrari`, `kapsamsiz-ilk-fiyat`, `kapsama-dahil-kalem-fiyati`, `arac-tekrar-soruldu`, `cumle-tekrari`, `kuru-acilis`, `ozelliksiz-liste`, `kompleye-kismi-teklifi`, `fiyati-araca-bagladi`, `renk-degisiminde-fiyat`, `sikayete-satis-cevabi`, `donen-selamsiz`, `fiyat-kapanissiz`. (`randevuda-telefon-yok` **15 Ağustos'ta kaldırıldı** — Fatih Bey numara istenmesinden vazgeçti.)
 
 **Düzeltme turuna süre bütçesi var** (`MOTOR_DUZELTME_BUTCE_MS`, varsayılan 8 sn): ilk çağrı bütçeyi aştıysa yalnızca `agir: true` işaretli eksikler (yanlış/eksik fiyat) ikinci tura çıkar. Biçimsel kusur için müşteri bir dakika daha bekletilmez. Hafif eksikler modelsiz düzeltilir (`hafifEksikleriKodlaDuzelt`).
 
@@ -209,7 +212,7 @@ cd app && npm run bedava:dogrula
 
 | Sınav | Ne kanıtlar |
 |---|---|
-| `kilit:dogrula` (37 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** |
+| `kilit:dogrula` (42 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** |
 | `parcali:dogrula` (6 vaka) | Parçalı mesajda tek cevap + **tur kilidinin atomikliği** |
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
@@ -224,6 +227,8 @@ Ayrıca: `npx tsc --noEmit`, `npm run zamanlanmis:dogrula` (⚠ yerel dev sunucu
 |---|---|---|
 | `npm run altin-set` | Cevap kalitesi + kırmızı bayraklar (18 vaka, 31 tur) | ~$0,50 |
 | `npm run geribildirim:dogrula` | Tüm geri bildirimler — 27 vaka × 3 tekrar | ~$2,4 |
+
+⚠ **Bir karar tersine dönünce SINAVI da ters çevir.** 15 Ağustos: "randevuda numara iste" kararı iptal oldu ama `geribildirim-dogrula` ve `prompt-netlik` hâlâ numara İSTENMESİNİ bekliyordu — sınav seti eski kararı koruyor, kodu eskiye çekmeye zorluyordu. İki vaka tersine çevrildi (`randevuda-numara-istemez`).
 | `npm run gorsel:dogrula` | Fiyat görseli ne zaman gider/gitmez | düşük |
 
 ⚠ **Her vaka 3 kez koşulur, kontrol ancak hepsinde geçerse geçmiş sayılır.** Eski sınav her vakayı bir kez koşuyor ve "18/18 geçti" diyordu — oysa "ilk cevapta selam + isim" kuralı 3 koşudan yalnızca 1'inde tutuyordu. **Tek koşuluk sınav yalan söyler.** Yeni sınav bunları **KIRILGAN (2/3)** diye ayrı raporlar; en tehlikeli kategori budur.

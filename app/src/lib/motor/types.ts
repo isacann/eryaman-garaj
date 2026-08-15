@@ -140,6 +140,11 @@ export type YanitGirdi = {
   simdi?: Date
   /** Panelden eklenen bilgi/davranış/kampanya. Yoksa bot eskisi gibi çalışır. */
   egitim?: EgitimIcerigi
+  /**
+   * Geçmiş var ama son yazışmanın üzerinden uzun süre geçti (dönen müşteri).
+   * bot.ts hesaplar; prompt selamlamayı ve geçmişi hatırlamayı buna göre kurar.
+   */
+  uzunAradanSonraMi?: boolean
 }
 
 export class MotorHatasi extends Error {

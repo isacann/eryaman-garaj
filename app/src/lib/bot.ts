@@ -230,11 +230,25 @@ export async function botCevapla(
     }
   }
 
+  // Dönen müşteri: geçmişte bizden giden mesaj var ama son gidenin üzerinden
+  // uzun süre geçmiş. Prompt bunu bilirse kısa bir "tekrar hoşgeldiniz" ile
+  // açar ve geçmişi hatırlayarak davranır; bilmezse ya selamsız dalar ya da
+  // müşteriyi yeni sanır (Fatih Bey, 15 Ağustos — Barkın vakası: eski müşteri
+  // şikayetle döndü, bot sıfırdan satış diliyle karşıladı).
+  const UZUN_ARA_SAAT = 24
+  const sonGiden = [...kronolojik].reverse().find((m) => m.yon === 'giden')
+  const uzunAradanSonraMi = Boolean(
+    sonGiden?.created_at &&
+      simdi.getTime() - new Date(sonGiden.created_at).getTime() >
+        UZUN_ARA_SAAT * 3600_000,
+  )
+
   let yanit
   try {
     yanit = await yanitUret({
       konusma: gecmis,
       kisiAdi: kisi?.ad ?? null,
+      uzunAradanSonraMi,
       // Reklamdan gelen müşterinin bağlamı konuşma açılırken meta'ya yazıldı.
       reklamBasligi:
         (konusmaMeta.reklam as { baslik?: string } | undefined)?.baslik ?? null,

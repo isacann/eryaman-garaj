@@ -76,7 +76,8 @@ export const YANIT_SEMASI: JsonSema = {
     fiyat_verilebilir_mi: {
       type: 'boolean',
       description:
-        'Araç ve kapsam netleşti VE rakam fiyat listesinde var ise true. Aksi halde false.',
+        'Kapsam netleşti VE rakam fiyat listesinde var ise true. Araç ŞART DEĞİL ' +
+        '(fiyatlandırma standart). Bu turda fiyat ya da liste veriyorsan true olmak zorunda.',
     },
     devir_gerekli_mi: {
       type: 'boolean',

@@ -586,8 +586,10 @@ const VAKALAR: Vaka[] = [
     ],
     kontroller: [
       {
-        ad: 'randevuda telefon istedi',
-        gec: (s) => /numara|telefon/i.test(s.metin),
+        // ⚠ 15 Ağustos'ta TERSİNE döndü: "Numara istemesin demiştim, istiyor."
+        // 12 Ağustos'ta numara istenmesi istenmişti; sahada saçma kaçtı.
+        ad: 'randevuda numara İSTEMEDİ',
+        gec: (s) => !/numara|telefon/i.test(s.metin),
         kanit: (s) => s.mesajlar.join(' / ').slice(0, 180),
       },
       {
@@ -679,8 +681,11 @@ const VAKALAR: Vaka[] = [
   },
 
   {
-    ad: 'randevu-telefon-iste',
-    kaynak: 'Fatih Bey, 12 Ağustos: "iletişim numarasını istesin, size hemen dönüş sağlıyoruz desin"',
+    // ⚠ 15 Ağustos'ta TERSİNE döndü (Fatih Bey: "Numara istemesin demiştim,
+    // istiyor"). Vaka silinmedi; artık tersini ölçüyor: numara İSTEMEDEN
+    // gün/saate götürüyor mu.
+    ad: 'randevuda-numara-istemez',
+    kaynak: 'Fatih Bey, 15 Ağustos: müşteri zaten bu hattan yazıyor, numara istemek gereksiz engel',
     kisiAdi: 'Enis',
     konusma: [
       { rol: 'musteri', metin: 'Bmw G20 komple ppf fiyatı nedir' },
@@ -689,13 +694,13 @@ const VAKALAR: Vaka[] = [
     ],
     kontroller: [
       {
-        ad: 'iletişim numarası istedi',
-        gec: (s) => /numara|telefon/i.test(s.metin),
+        ad: 'iletişim numarası İSTEMEDİ',
+        gec: (s) => !/numara(nızı|nız)?\s|telefon/i.test(s.metin),
         kanit: (s) => s.mesajlar.join(' / ').slice(0, 200),
       },
       {
-        ad: 'dönüş sözü verdi',
-        gec: (s) => /dönüş|geri döneriz|hemen döneriz|ulaşalım/i.test(s.metin),
+        ad: 'gün/saate götürdü (saat sordu ya da uygunluk konuştu)',
+        gec: (s) => /saat|sabah|öğle|akşam|uygun|müsait|bekliyoruz|gelebilirsiniz/i.test(s.metin),
         kanit: (s) => s.mesajlar.join(' / ').slice(0, 200),
       },
       {

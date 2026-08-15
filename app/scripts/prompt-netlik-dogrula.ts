@@ -49,7 +49,8 @@ const VAKALAR: Vaka[] = [
   },
   {
     ad: 'Randevu sorusu (16:15 ekranı)',
-    sikayet: '"İletişim numarasını istesin, size hemen dönüş sağlıyoruz desin" + araç tekrar sorma',
+    // ⚠ 15 Ağustos: numara isteme kuralı TERSİNE döndü, örnek cevap güncellendi.
+    sikayet: 'Randevuda numara İSTEMEDEN gün/saate götürme + araç tekrar sorma',
     konusma: [
       { rol: 'musteri', metin: 'Bmw G20 komple ppf fiyatı nedir' },
       {
@@ -58,11 +59,11 @@ const VAKALAR: Vaka[] = [
       },
       { rol: 'musteri', metin: 'Peki yarın için boşlugunuz var mı' },
     ],
-    // Prompt satır 56-60: randevuda telefon iste + dönüş sözü.
-    // Prompt satır 37-45: aracı biliyorsan tekrar sorma, adıyla an.
+    // Prompt randevu bölümü: numara isteme YASAK, net gün/saate götür.
+    // Prompt: aracı biliyorsan tekrar sorma, adıyla an.
     cevap: [
-      'Yarın için müsaitliğimizi kontrol edip size hemen dönüş sağlıyoruz.',
-      'İletişim numaranızı paylaşırsanız BMW G20\'niz için uygun saati birlikte netleştirelim.',
+      'Yarın için müsaitliğimiz var, BMW G20\'nizi bekliyoruz.',
+      'Sabah mı öğleden sonra mı sizin için uygun olur?',
     ],
     yapili: {
       arac: 'BMW G20',
@@ -89,7 +90,7 @@ const VAKALAR: Vaka[] = [
       'Global PPF, komple kaplamada bütçe dostu ve dengeli bir tercih oluyor.',
       'Giriş seviyesi olarak taş izi, çizilme ve UV korumasını 190 mikron kalınlıkla, 5 yıl garantiyle sağlıyor.',
       'Fiyat/performans olarak XPEL Xtreme\'i de değerlendirebilirsiniz; aradaki fark parlaklık ve dayanımda kendini gösteriyor.',
-      'Karar verdiğinizde iletişim numaranızı paylaşırsanız randevunuzu hemen planlayalım.',
+      'Karar verdiğinizde hangi gün getirmek istediğinizi yazmanız yeterli, randevunuzu hemen planlayalım.',
     ],
     yapili: { arac: 'BMW G20', kapsam: 'komple PPF' },
   },
