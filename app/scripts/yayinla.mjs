@@ -75,6 +75,40 @@ function vercel(argumanlar, secenekler = {}) {
   })
 }
 
+/**
+ * Bir ortam değişkenini yayına yazar.
+ *
+ * ⚠ 15 Ağustos 2026: `env rm` sessizce başarısız olabiliyor (CLI 58.9, hata
+ * "branch_not_found ... on branch undefined") ve arkasından gelen `env add`
+ * "already exists" diyerek betiği KOMPLE düşürüyordu — yani sadece bir
+ * değişken güncellenemediği için dağıtım hiç yapılamıyordu. Oysa env'ler zaten
+ * doğruyken tek istenen şey dağıtımdı.
+ *
+ * Artık yazma hatası dağıtımı durdurmuyor: değişken atlanıyor, adı biriktirilip
+ * SONDA topluca uyarı olarak basılıyor. Yazılamayan değişkenin yayındaki ESKİ
+ * değeri kalır — bu yüzden uyarı sessiz değil, listeli ve açık.
+ */
+const yazilamayanlar = []
+
+function envYaz(ad, deger) {
+  for (const ortam of ORTAMLAR) {
+    try {
+      vercel(['env', 'rm', ad, ortam, '--yes'], { input: '' })
+    } catch {
+      // Yoksa silinecek bir şey de yok.
+    }
+    try {
+      vercel(['env', 'add', ad, ortam], { input: deger })
+    } catch (e) {
+      const mesaj = String(e?.stdout ?? e?.message ?? e)
+      const zatenVar = /already exists/i.test(mesaj)
+      yazilamayanlar.push(`${ad} (${ortam})${zatenVar ? ' — yayındaki eski değer duruyor' : ''}`)
+      return false
+    }
+  }
+  return true
+}
+
 // 1. Oturum
 //
 // ⚠ `vercel whoami` takım kapsamındaki oturumlarda "Not authorized" dönebiliyor
@@ -125,15 +159,8 @@ for (const [ad, deger] of Object.entries(DEGISKENLER)) {
     console.error(`✗ ${ad} boş. ../.secrets.env dosyasına ekle.`)
     process.exit(1)
   }
-  for (const ortam of ORTAMLAR) {
-    try {
-      vercel(['env', 'rm', ad, ortam, '--yes'], { input: '' })
-    } catch {
-      // Yoksa silinecek bir şey de yok.
-    }
-    vercel(['env', 'add', ad, ortam], { input: deger })
-  }
-  console.log(`✓ ${ad}`)
+  if (envYaz(ad, deger)) console.log(`✓ ${ad}`)
+  else console.warn(`! ${ad} yazılamadı, dağıtım sürüyor`)
 }
 
 for (const [ad, deger] of Object.entries(ISTEGE_BAGLI)) {
@@ -152,15 +179,8 @@ for (const [ad, deger] of Object.entries(ISTEGE_BAGLI)) {
     console.log(`· ${ad} tanımlı değil, atlandı (ilgili özellik kapalı kalır)`)
     continue
   }
-  for (const ortam of ORTAMLAR) {
-    try {
-      vercel(['env', 'rm', ad, ortam, '--yes'], { input: '' })
-    } catch {
-      // Yoksa silinecek bir şey de yok.
-    }
-    vercel(['env', 'add', ad, ortam], { input: deger })
-  }
-  console.log(`✓ ${ad}`)
+  if (envYaz(ad, deger)) console.log(`✓ ${ad}`)
+  else console.warn(`! ${ad} yazılamadı, dağıtım sürüyor`)
 }
 
 // 4. Fiyat listesi kopyası (yayında üst dizin yok, kopya şart)
@@ -175,3 +195,15 @@ const cikti = vercel(['deploy', '--prod', '--yes'], {
 const adres = cikti.trim().split(/\s+/).pop()
 console.log(`\n✓ yayında: ${adres}`)
 console.log('Panele giriş: npm run kullanici:ekle -- <e-posta> <sifre>')
+
+if (yazilamayanlar.length > 0) {
+  console.warn(
+    [
+      '',
+      `! Şu ortam değişkenleri GÜNCELLENEMEDİ (${yazilamayanlar.length}):`,
+      ...yazilamayanlar.map((y) => `    - ${y}`),
+      '  Dağıtım yapıldı ama bu değişkenlerin yayındaki eski değeri duruyor.',
+      '  Değer DEĞİŞTİYSE Vercel panelinden elle güncelle: Settings → Environment Variables.',
+    ].join('\n'),
+  )
+}

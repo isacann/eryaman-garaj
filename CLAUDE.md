@@ -267,7 +267,7 @@ Ayrıca: `npx tsc --noEmit`, `npm run zamanlanmis:dogrula` (⚠ yerel dev sunucu
 | `altin-set-uret.mjs` | Arşivden sınav seti üretir |
 | `supabase-kur.mjs` | Supabase projesini bulur/açar |
 
-`app/scripts/`: `provision.mjs` (şema), `cron-kur.mjs`, `yayinla.mjs` (Vercel), `env-yaz.mjs`, `kullanici-ekle.mjs`, `konsol-dogrula.mjs`, `maliyet-olc.ts`, `gecikme-olc.ts`, `sohbet.ts` (komut satırından bota konuşma oynatır), `kilit-dogrula.ts`, `uctan-uca-dogrula.ts`, `prompt-netlik-dogrula.ts`, `kampanya-dogrula.ts`, `kanal-dogrula.ts`, `model-karsilastir.ts`.
+`app/scripts/`: `provision.mjs` (şema), `cron-kur.mjs`, `yayinla.mjs` (Vercel — ⚠ tek bir ortam değişkeni yazılamadığında eskiden dağıtımın TAMAMI düşüyordu; artık atlanıp sonda uyarı listesi basılıyor), `env-yaz.mjs`, `kullanici-ekle.mjs`, `konsol-dogrula.mjs`, `maliyet-olc.ts`, `gecikme-olc.ts`, `sohbet.ts` (komut satırından bota konuşma oynatır), `kilit-dogrula.ts`, `uctan-uca-dogrula.ts`, `prompt-netlik-dogrula.ts`, `kampanya-dogrula.ts`, `kanal-dogrula.ts`, `model-karsilastir.ts`.
 
 Bota komut satırından konuşmak:
 ```bash
