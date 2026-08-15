@@ -133,6 +133,44 @@ try {
 }
 console.log(`✓ Vercel oturumu: ${kim}`)
 
+// 1b. HESAP KİLİDİ (15 Ağustos 2026 — pahalı ders)
+//
+// ⛔ Bu proje YALNIZCA Fatih Bey'in hesaplarına kurulur. Sözleşme Madde 6:
+// Vercel / Supabase / Railway / Anthropic hesapları onun adına, faturalar onun
+// kartına. Geliştiricinin (İsa / Operiqo) hesabına dağıtım YASAK.
+//
+// Neden kilit gerekti: 15 Ağustos'ta bir günlük düzeltmenin tamamı yanlış
+// hesaptaki bir projeye dağıtıldı. Her dağıtım "başarılı" dedi, alias doğruydu,
+// sağlık kontrolü 200 döndü — ama WhatsApp webhook'u Fatih Bey'in projesine
+// bakıyordu ve müşteriler bütün gün 14 Ağustos sürümüyle konuştu. Sekiz saat
+// boyunca kimse fark etmedi çünkü "dağıtım başarılı" ile "canlı kod güncellendi"
+// aynı şey sanıldı.
+//
+// Kilit, `.secrets.env` içindeki VERCEL_HESAP değeriyle oturumu karşılaştırır.
+// Uyuşmazsa dağıtım YAPILMAZ. Değer tanımlı değilse yalnızca uyarır — eski
+// kurulumları kırmamak için.
+const beklenenHesap = (env.VERCEL_HESAP ?? '').trim()
+if (beklenenHesap) {
+  const kucuk = kim.toLowerCase()
+  if (!kucuk.includes(beklenenHesap.toLowerCase())) {
+    console.error(
+      `\n⛔ YANLIŞ VERCEL HESABI — dağıtım durduruldu.\n` +
+        `   Beklenen : ${beklenenHesap}\n` +
+        `   Oturum   : ${kim}\n\n` +
+        `   Bu proje yalnızca Fatih Bey'in hesabına dağıtılır (Sözleşme Madde 6).\n` +
+        `   Doğru hesaba geçmek için: vercel login\n` +
+        `   ya da onun hesabından alınmış bir belirteçle: vercel --token <TOKEN>\n`,
+    )
+    process.exit(1)
+  }
+  console.log(`✓ Hesap doğrulandı: ${beklenenHesap}`)
+} else {
+  console.warn(
+    '! .secrets.env içinde VERCEL_HESAP tanımlı değil — hesap kilidi çalışmıyor.\n' +
+      '  Yanlış hesaba dağıtım riskine karşı bu değeri tanımla.',
+  )
+}
+
 // 2. Proje bağlama
 console.log(`· proje bağlanıyor: ${PROJE}`)
 vercel(['link', '--yes', '--project', PROJE], { input: '', stdio: ['pipe', 'inherit', 'inherit'] })

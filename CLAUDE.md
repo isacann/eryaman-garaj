@@ -17,6 +17,11 @@ Son güncelleme: **15 Ağustos 2026**
 | WhatsApp | Evolution API (kendi sunucumuz, Railway) |
 | Instagram | Meta resmî API (Instagram Login) |
 
+⛔ **HESAP KURALI — istisnasız.** Vercel, Supabase, Railway, Anthropic: hepsi **Fatih Bey'in hesaplarında**. Geliştiricinin (İsa / Operiqo) hesabına dağıtım **yasak** (Sözleşme Madde 6). `yayinla.mjs` bunu `.secrets.env` içindeki `VERCEL_HESAP` ile kilitler; uyuşmazsa dağıtım durur.
+
+⚠ **"Dağıtım başarılı" ile "canlı kod güncellendi" AYNI ŞEY DEĞİL.** 15 Ağustos 2026'da bir günlük düzeltmenin tamamı — 11 hata — yanlış hesaptaki bir projeye dağıtıldı. Her dağıtım başarılı dedi, alias doğruydu, sağlık kontrolü 200 döndü. Ama WhatsApp webhook'u **başka bir dağıtıma** bakıyordu ve müşteriler sekiz saat boyunca 14 Ağustos sürümüyle konuştu. Aynı hatalar tekrar tekrar bildirildi, her seferinde "düzeltildi" denip kapatıldı.
+**Sorulacak doğru soru "dağıtım oldu mu" değil: `webhook/find` ile gelen mesajın HANGİ adrese gittiğini doğrula.** Kontrol: `node -e "...webhook/find/<instance>..."` · pg_cron işleri de aynı adresi taşır, panel adresi değişince `npm run cron:kur` tekrar koşulmalı.
+
 📦 **Teslim/kurulum yapıyorsanız → `TESLIM.md`.** Hesap devri, kurulum sırası, doğrulama listesi ve geri dönüşü olmayan adımlar orada.
 
 ---
