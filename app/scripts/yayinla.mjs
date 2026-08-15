@@ -66,8 +66,19 @@ const ISTEGE_BAGLI = {
 
 const ORTAMLAR = ['production', 'preview']
 
+/**
+ * ⚠ VERCEL_TOKEN (.secrets.env): tanımlıysa her komuta --token eklenir.
+ *
+ * Bu, "doğru hesaba dağıtım" sorununun kalıcı çözümü (15 Ağustos dersi):
+ * CLI oturumu geliştiricinin kişisel hesabında olabilir; token ise Fatih
+ * Bey'in hesabından alınır ve dağıtım HEP onun hesabına gider — makinedeki
+ * oturumdan bağımsız. Token: Vercel → Settings → Tokens.
+ */
+const VERCEL_TOKEN = (env.VERCEL_TOKEN ?? '').trim()
+
 function vercel(argumanlar, secenekler = {}) {
-  return execFileSync('vercel', argumanlar, {
+  const tam = VERCEL_TOKEN ? [...argumanlar, '--token', VERCEL_TOKEN] : argumanlar
+  return execFileSync('vercel', tam, {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
     shell: process.platform === 'win32',
