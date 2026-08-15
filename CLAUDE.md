@@ -309,6 +309,7 @@ Sabit ~5 sn taban, geri kalanın tamamı **çıktı uzunluğu**. Ölç: `npm run
 
 | İş | Öncelik |
 |---|---|
+| 🔴 **CANLIYA ALMA — tek eksik adım.** 15 Ağustos'un tüm düzeltmeleri commit'li ve sınavlı ama canlıda (Fatih'in Vercel'i, `-seven`) hâlâ 14 Ağustos sürümü koşuyor. Gereken: Fatih'in Vercel hesabından token (Settings → Tokens) → `.secrets.env` `VERCEL_TOKEN=` → `npm run yayinla`. Dağıtım sonunda `canli:dogrula` otomatik koşar ve webhook + canlı sürüm (git hash) + cron hedefini KANITLAR — üçü tutmadan "canlıya çıktı" denmez | 🔴 |
 
 | Meta İşletme Doğrulaması → Instagram Live mode | 🔴 **Instagram'ın tek kalan engeli** (kod 14 Ağustos'ta tamamlandı) |
 | Instagram jetonu 60 günlük — yenileme takibi kurulmadı | 🟡 |

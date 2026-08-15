@@ -33,7 +33,8 @@
     "teslim:env": "node scripts/teslim-env.mjs",
     "randevu:dogrula": "tsx scripts/randevu-dogrula.ts",
     "randevu:uctan-uca": "tsx --conditions=react-server scripts/randevu-uctan-uca.ts",
-    "parcali:dogrula": "tsx --conditions=react-server scripts/parcali-mesaj-dogrula.ts"
+    "parcali:dogrula": "tsx --conditions=react-server scripts/parcali-mesaj-dogrula.ts",
+    "canli:dogrula": "node scripts/canli-dogrula.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

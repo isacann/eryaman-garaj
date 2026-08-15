@@ -186,6 +186,18 @@ if (beklenenHesap) {
 console.log(`· proje bağlanıyor: ${PROJE}`)
 vercel(['link', '--yes', '--project', PROJE], { input: '', stdio: ['pipe', 'inherit', 'inherit'] })
 
+// 2b. Kod sürümü: canlı ortamın hangi commit'i koştuğunun kanıtı.
+// Webhook GET cevabında `surum` olarak görünür; canli-dogrula.mjs yerel git
+// hash ile karşılaştırır. 15 Ağustos: bu kanıt olmadığı için 8 saat boyunca
+// eski kodun koştuğu fark edilmedi.
+let kodSurumu = ''
+try {
+  kodSurumu = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
+} catch {
+  console.warn('! git hash alınamadı, KOD_SURUMU yazılmayacak')
+}
+if (kodSurumu) DEGISKENLER.KOD_SURUMU = kodSurumu
+
 // 3. Ortam değişkenleri
 //
 // ⚠ NEXT_PUBLIC_PANEL_ADRES tavuk-yumurta sorunudur: adres ancak İLK dağıtımdan
@@ -244,6 +256,18 @@ const cikti = vercel(['deploy', '--prod', '--yes'], {
 const adres = cikti.trim().split(/\s+/).pop()
 console.log(`\n✓ yayında: ${adres}`)
 console.log('Panele giriş: npm run kullanici:ekle -- <e-posta> <sifre>')
+
+// 6. CANLI KANIT — "dağıtım başarılı" yetmez; webhook hedefi + canlı sürüm +
+// cron hedefi doğrulanır. Düşerse çıkış kodu 1: dağıtım yapıldı ama canlı
+// ortam bu koda bakmıyor demektir, sessizce geçilmez.
+console.log('')
+console.log('· canlı ortam doğrulanıyor...')
+try {
+  execFileSync(process.execPath, ['scripts/canli-dogrula.mjs'], { stdio: 'inherit' })
+} catch {
+  console.error('⛔ Canlı doğrulama düştü. Webhook/cron hedefini kontrol et.')
+  process.exit(1)
+}
 
 if (yazilamayanlar.length > 0) {
   console.warn(

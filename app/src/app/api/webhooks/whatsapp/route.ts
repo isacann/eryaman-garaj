@@ -30,7 +30,16 @@ const WEBHOOK_SIR = process.env.EVOLUTION_WEBHOOK_SIR ?? ''
  * bu uç nokta yalnızca "adres ayakta mı" sorusunu cevaplamak için duruyor.
  */
 export async function GET() {
-  return NextResponse.json({ tamam: true, kanal: 'whatsapp', saglayici: 'evolution' })
+  return NextResponse.json({
+    tamam: true,
+    kanal: 'whatsapp',
+    saglayici: 'evolution',
+    // Canlıda HANGİ kodun koştuğunun kanıtı. yayinla.mjs her dağıtımda git
+    // hash'ini KOD_SURUMU olarak yazar; canli-dogrula.mjs yereldeki hash ile
+    // karşılaştırır. 15 Ağustos dersi: "dağıtım başarılı" 8 saat boyunca
+    // "canlı kod güncel" sanıldı — webhook başka projeye bakıyordu.
+    surum: process.env.KOD_SURUMU ?? 'bilinmiyor',
+  })
 }
 
 export async function POST(req: Request) {
