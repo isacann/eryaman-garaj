@@ -12,7 +12,7 @@
 //
 // Çalıştır: npx tsx scripts/kilit-dogrula.ts
 
-import { eksikleriBul } from '../src/lib/motor'
+import { eksikleriBul, ilkAd } from '../src/lib/motor'
 import type { YapiliCikti } from '../src/lib/motor/types'
 
 type Vaka = {
@@ -46,6 +46,49 @@ const TEMEL: YapiliCikti = {
 } as YapiliCikti
 
 const VAKALAR: Vaka[] = [
+  // ── Fatih Bey, 15 Ağustos: "Renkli kaplama için fiyat vermesin" ──────────
+  {
+    ad: 'renk-degisiminde-fiyat',
+    kaynak: 'Fatih Bey 15 Ağustos: sahada "Global Premium 85.000₺, XPEL 110.000₺" gitti',
+    bekleniyor: 'renk-degisiminde-fiyat',
+    mesajlar: [
+      'Komple renk değişimde iki seçeneğimiz var: Global Premium 85.000₺, XPEL 110.000₺.',
+    ],
+    sonMusteriMetni: 'BMW f30 kırmızı mat krom kaplama fiyatı nedir',
+    tumMusteriMetni: 'BMW f30 kırmızı mat krom kaplama fiyatı nedir',
+  },
+  {
+    ad: 'renk-degisiminde-fiyat ("renk değişimi" kelimesiyle)',
+    kaynak: 'Kalem adı doğrudan geçtiğinde de yakalanmalı',
+    bekleniyor: 'renk-degisiminde-fiyat',
+    mesajlar: ['Renk değişimi için fiyatımız 85.000₺ civarında oluyor.'],
+    sonMusteriMetni: 'aracıma renk değişimi yaptırmak istiyorum',
+    tumMusteriMetni: 'aracıma renk değişimi yaptırmak istiyorum',
+  },
+  {
+    ad: 'renk-degisiminde-fiyat (yanlış alarm — rakamsız cevap)',
+    kaynak: 'Rakam yoksa kilit tetiklenmemeli; bot konuyu konuşabilmeli',
+    bekleniyor: null,
+    mesajlar: [
+      'Merhabalar Emre bey, hoşgeldiniz.',
+      'BMW F30 üzerinde kırmızı mat çok şık duruyor. Renk değişiminde fiyat aracın yüzey alanına ve seçilen filme göre değişiyor; kapı içleri de dahil olacak mı, sadece dış gövde mi? Bu bilgiyle ekibimiz size net fiyatı hazırlayıp dönüş sağlayacak.',
+    ],
+    yapiliEzme: { fiyat_verilebilir_mi: false, devir_gerekli_mi: true, kapsam: 'renk değişimi' },
+    ilkCevapMi: true,
+    isim: 'Emre',
+    sonMusteriMetni: 'BMW f30 kırmızı mat krom kaplama',
+    tumMusteriMetni: 'BMW f30 kırmızı mat krom kaplama',
+  },
+  {
+    ad: 'renk-degisiminde-fiyat (yanlış alarm — normal PPF fiyatı)',
+    kaynak: 'ÖNEMLİ AYRIM: mat PPF bir koruma kalemi, fiyatı verilir. Kilit buna dokunmamalı.',
+    bekleniyor: null,
+    mesajlar: [
+      'Komple PPF seçeneklerimiz:\n• XPEL Xtreme PPF – 100.000₺ (190 mikron, 5 yıl garanti, üstün parlaklık)',
+    ],
+    sonMusteriMetni: 'komple ppf fiyatı nedir',
+    tumMusteriMetni: 'BMW G20 komple ppf fiyatı nedir',
+  },
   // ── Fatih Bey, 12 Ağustos ekran görüntüleri ──────────────────────────────
   {
     ad: 'uydurma-urun-ozelligi',
@@ -244,8 +287,37 @@ for (const v of VAKALAR) {
   }
 }
 
+// ── Hitap adı: soyadı düşürülüyor mu (Fatih Bey, 15 Ağustos) ──────────────
+// Sahada "Merhabalar Asım ALTUN bey" ve "Merhabalar Mustafa Kemiksiz bey"
+// gitti. Kaynak WhatsApp pushName: müşteri profiline tam adını yazıyor.
+console.log('\nHitap adı — soyadıyla hitap etmesin')
+
+const ISIM_VAKALARI: { girdi: string | null; bekleniyor: string | null; neden: string }[] = [
+  { girdi: 'Asım ALTUN', bekleniyor: 'Asım', neden: 'Sahadaki kusur, büyük harfli soyad.' },
+  { girdi: 'Mustafa Kemiksiz', bekleniyor: 'Mustafa', neden: 'Sahadaki ikinci kusur.' },
+  { girdi: 'Emre', bekleniyor: 'Emre', neden: 'Tek kelime olduğu gibi kalır.' },
+  { girdi: '  Ayşe   Yılmaz  ', bekleniyor: 'Ayşe', neden: 'Fazla boşluk bozmamalı.' },
+  { girdi: 'Ali Rıza Şahin', bekleniyor: 'Ali', neden: 'Üç kelimede de ilk ad alınır.' },
+  { girdi: null, bekleniyor: null, neden: 'Adı bilinmeyen müşteri.' },
+  { girdi: '   ', bekleniyor: null, neden: 'Boş ad null olmalı.' },
+]
+
+for (const v of ISIM_VAKALARI) {
+  const sonuc = ilkAd(v.girdi)
+  if (sonuc === v.bekleniyor) {
+    gecti += 1
+    console.log(`  ✓ "${v.girdi ?? '(yok)'}" → ${sonuc ?? '(yok)'}`)
+  } else {
+    kalanlar.push(`ilkAd("${v.girdi ?? ''}")`)
+    console.log(`  ✗ "${v.girdi ?? '(yok)'}" → beklenen ${v.bekleniyor}, gelen ${sonuc}`)
+    console.log(`      kaynak: ${v.neden}`)
+  }
+}
+
+const TOPLAM = VAKALAR.length + ISIM_VAKALARI.length
+
 console.log(`\n${'─'.repeat(70)}`)
-console.log(`${gecti}/${VAKALAR.length} kilit doğru davrandı`)
+console.log(`${gecti}/${TOPLAM} kilit doğru davrandı`)
 console.log(
   '\nBu sınav kuralın KODDA doğru yazıldığını kanıtlar (yakalama + yanlış alarm yokluğu).',
 )

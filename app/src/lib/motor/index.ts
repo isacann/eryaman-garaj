@@ -579,6 +579,41 @@ export function eksikleriBul(
   //       Kilit kaldırıldı, prompt kuralları da temizlendi. Yeni bir kural
   //       yazılmıyor: numara istemek yasak değil, sadece ZORUNLU değil.
 
+  // 2c-3) ⛔ RENK DEĞİŞİMİNDE RAKAM YOK (Fatih Bey, 15 Ağustos: "Renkli kaplama
+  //       için fiyat vermesin, yanlış fiyat veriyor").
+  //
+  //       Sahada bot "Global Premium 85.000₺, XPEL 110.000₺" dedi. Rakamlar
+  //       uydurma değildi — fiyat listesinde yazıyordu. Sorun listedeydi: o iki
+  //       rakam Fatih Bey'in TEK bir araca (BMW G20, parlak yeşil) verdiği
+  //       cevaptan alınmıştı ve bot onları her araca sabit fiyat gibi söyledi.
+  //       Kalem listeden çıkarıldı; bu kilit ise botun konuyu başka bir kalemin
+  //       rakamıyla doldurmasını engelliyor (110.000 hâlâ mat PPF'in meşru
+  //       fiyatı, yani "uydurma rakam" denetimine takılmaz).
+  //
+  //       ⚠ AYRIM: "mat PPF" bir KORUMA kalemidir, fiyatı vardır. "kırmızı mat
+  //       kaplama" renk DÖNÜŞÜMÜDÜR, fiyatı yoktur. Kilit renk adı arıyor.
+  const renkMetni = `${baglam.tumMusteriMetni ?? ''} ${baglam.sonMusteriMetni ?? ''}`
+  const renkDegisimiSorusu =
+    /renk\s*de[ğg]i[şs]|renkli\s*(ara[çc]\s*)?kaplama|ara[çc]\s*giydirme|renk\s*kaplama/i.test(
+      renkMetni,
+    ) ||
+    // "BMW F30 kırmızı mat krom kaplama" — renk adı + kaplama kelimesi.
+    /\b(k[ıi]rm[ıi]z[ıi]|mavi|ye[şs]il|sar[ıi]|turuncu|mor|beyaz|siyah|gri|bordo|lacivert|pembe|alt[ıi]n|bak[ıi]r|krom)\b[^.!?\n]{0,40}\b(kaplama|giydirme|d[öo]n[üu][şs][üu]m)/i.test(
+      renkMetni,
+    )
+  if (renkDegisimiSorusu && /\d[\d.]{2,}\s*(₺|tl)/i.test(tumMetin)) {
+    eksikler.push({
+      ad: 'renk-degisiminde-fiyat',
+      agir: true,
+      talimat:
+        'Müşteri RENK DEĞİŞİMİ / renkli kaplama soruyor. Bu kalemde fiyat listesi YOK, ' +
+        'rakam söylemek yasak — ne fiyat, ne aralık, ne "şu civarda". Cevabından TÜM ' +
+        'rakamları çıkar. Bunun yerine: işi sahiplen, aracı ve isteneni öğren (model yılı, ' +
+        'istenen renk ve doku, kapı içleri dahil mi sadece dış gövde mi), ekibin net fiyatla ' +
+        'döneceğini söyle. devir_gerekli_mi alanını true yap.',
+    })
+  }
+
   // 2d) Komple isteyene kısmi seçenek sunma.
   //     Fatih Bey, 12 Ağustos: "komple olana 4 parça sunuyor". Müşteri kararını
   //     vermişken aşağı çekmek satışı bozuyor.
@@ -766,11 +801,36 @@ export function eksikleriBul(
   return eksikler
 }
 
+/**
+ * Hitapta kullanılacak ad: SADECE ilk ad.
+ *
+ * ⚠ 15 Ağustos (Fatih Bey): "Müşteri soyadıyla hitap etmesin." Sahada
+ * "Merhabalar Asım ALTUN bey" ve "Merhabalar Mustafa Kemiksiz bey" gitti.
+ * Sebep WhatsApp'ın `pushName` alanı: müşterinin kendi profiline yazdığı ad
+ * geliyor ve çoğu kişi tam adını yazıyor, bazen de büyük harfle. Soyadıyla
+ * hitap resmî ve soğuk kaçıyor, üstelik "KEMIKSIZ bey" gibi tuhaf duruyor.
+ *
+ * Normalizasyon motorun GİRİŞİNDE yapılıyor: hem prompta verilen ad, hem
+ * selamlamayı kodla kuran kilit, hem de denetim aynı kaynaktan beslensin.
+ * İki yerde ayrı ayrı kırpmak, ikisinin zamanla ayrışması demekti.
+ *
+ * Tek kelimelik ad olduğu gibi kalır. Unvan/emoji temizliği YAPILMAZ: buradaki
+ * iş yalnızca soyadı düşürmek, ad tahmini değil.
+ */
+export function ilkAd(tamAd: string | null | undefined): string | null {
+  const temiz = tamAd?.trim()
+  if (!temiz) return null
+  const ilk = temiz.split(/\s+/)[0]
+  return ilk === '' ? null : ilk
+}
+
 /** Bir tur cevap üretir. Sistem promptu her çağrıda güncel fiyat listesiyle kurulur. */
 export async function yanitUret(
-  girdi: YanitGirdi,
+  ham: YanitGirdi,
   saglayici: Saglayici = saglayiciAl(),
 ): Promise<MotorYanit> {
+  // Hitap adı tek yerde sadeleştirilir; aşağıdaki her kullanım bunu görür.
+  const girdi: YanitGirdi = { ...ham, kisiAdi: ilkAd(ham.kisiAdi) }
   const gorseller = girdi.gorseller ?? []
 
   // Geçmişte hiç bot mesajı yoksa bu ilk cevap: fiyatla açma kilidi devreye girer.

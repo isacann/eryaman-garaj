@@ -81,22 +81,25 @@ Satış notu (Fatih Bey'in ağzından): *"Aracınızı teslim alınır alınmaz 
 
 ---
 
-## 1c. Renk değişim kaplama (renkli araç kaplama) — TL
+## 1c. Renk değişim kaplama (renkli araç kaplama) — ⛔ BOT FİYAT VERMEZ
 
-Sitede "Renkli Araç Kaplama" olarak geçiyor. Fiyat kaynağı: Fatih Bey'in
-10 Ağustos 2026'da onayladığı cevap (BMW G20, parlak yeşil).
+🚫 **BU KALEMDE RAKAM SÖYLENMEZ. DEVREDİLİR.** (Fatih Bey, 15 Ağustos 2026:
+*"Renkli kaplama için fiyat vermesin, yanlış fiyat veriyor."*)
 
-| Ürün | Komple renk değişimi |
-|---|---|
-| **Global Premium** | **85.000₺** |
-| **XPEL** | **110.000₺** |
+Eskiden burada iki rakam yazıyordu (Global Premium ve XPEL için birer fiyat) ve
+kaynağı Fatih Bey'in 10 Ağustos'ta onayladığı **tek bir cevaptı** — BMW G20,
+parlak yeşil. Sahada görüldü ki o rakamlar tek bir araca ve tek bir renge
+aitmiş; bot onları her araca her renge sabit fiyat gibi söyleyince yanlış fiyat
+vermiş oldu. Renk değişiminde fiyat aracın yüzey alanına, film cinsine ve
+renge göre değişiyor; standart bir liste yok.
 
-Her iki uygulamada da **detaylı yüzey hazırlığı, profesyonel uygulama ve
-işçilik dahildir**.
+**Botun yapacağı:** hizmeti anlatır, ilgi gösterir, aracı ve isteneni öğrenir,
+sonra devreder. Rakam yok, "şu civarda" yok, aralık yok.
 
-⚠ Fiyatı netleştirmek için sorulacaklar (Fatih Bey'in kendi soruları):
-- Aracın **model yılı**
-- **Kapı içleri** de renk değişimine dahil mi, yoksa sadece dış gövde mi
+Kalem sorulduğunda öğrenilecekler (sonraki teklifi ekip hazırlar):
+- Aracın **marka/model ve model yılı**
+- İstenen **renk ve doku** (parlak / mat / saten / krom)
+- **Kapı içleri** dahil mi, yoksa sadece dış gövde mi
 
 ---
 

@@ -69,6 +69,8 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Bildirim | Telegram. Randevu / devir / sıcak müşteri anlık; gece gelenler sabaha ertelenir |
 | Bot kimliği | "Eryaman Garaj" adına konuşur, robot olup olmadığı sorulursa saklamaz |
 | Hitap | Erkek → bey, kadın → hanım, **unisex ya da emin değilse hitap yok**, sadece ad |
+| Hitapta ad | **Sadece ilk ad** (15 Ağustos). WhatsApp `pushName` tam ad getiriyor; "Asım ALTUN bey" gitti. Kod kilidi: `ilkAd()`, motorun girişinde |
+| Renkli kaplama (renk değişimi) | ⛔ **Bot fiyat VERMEZ, devreder** (15 Ağustos). Standart liste yok; fiyat yüzey alanına, filme ve renge göre değişiyor. Bot hizmeti anlatır, aracı/isteneni öğrenir, ekip fiyatlar. **Ayrım:** "mat PPF" koruma kalemidir, fiyatı verilir; "kırmızı mat kaplama" renk dönüşümüdür, verilmez |
 
 ⚠ **Bir kural iki yerde yazılıyorsa ikisinin çelişmediğini kontrol et.** Bu ders üç kez tekrarlandı: karar `FIYAT-LISTESI.md` ya da `KAPSAM.md`'de güncellendi, `sistem-prompt.ts`'te eski hâli kaldı ve bot iki kaynağın arasında kaldı. **Bir karar değiştirdiğinde `sistem-prompt.ts`'i grep'le.**
 
@@ -82,7 +84,8 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 - `arsiv/wa-isimler.json`, `arsiv/ig-isimler.json` — tam isim listeleri
 
 ### Analizler
-- `FIYAT-LISTESI.md` — **botun tek fiyat kaynağı.** Motor bunu dosyadan okur; fiyat değişince yalnızca bu dosya güncellenir
+- `FIYAT-LISTESI.md` — **botun tek fiyat kaynağı.** Motor bunu dosyadan okur; fiyat değişince yalnızca bu dosya güncellenir. `app/FIYAT-LISTESI.md` **üretilen kopyadır** (prebuild `fiyat:esitle`), elle düzenlenmez
+  ⚠ **Listede rakam olması, o rakamın söylenebilir olduğu anlamına gelmiyor.** Renk değişimi kaleminin iki rakamı tek bir araca verilmiş tek bir cevaptan gelmişti; bot onları her araca sabit fiyat gibi söyledi. Kalem 15 Ağustos'ta listeden çıkarıldı. **Bir rakamı listeye koymadan önce sor: bu her müşteri için mi geçerli, yoksa bir kereye mahsus muydu?**
 - `TON-ANALIZI.md` — ton profili (⚠ şu an sadece Instagram verisine dayanıyor, WhatsApp ile güncellenmeli)
 - `altin-set.json` + `ALTIN-SET.md` — 18 gerçek konuşmadan sınav seti
 - `fiyat-listesi/*.png` — fiyat görselleri (PPF, cam filmi, mikron tablosu)
@@ -127,7 +130,7 @@ Uygulamanın hiçbir yeri doğrudan WhatsApp'a ya da Instagram'a bağlanmaz; her
 ⚠ Müşteri adı promptun **sonunda** olmalı; başta olduğu sürece önbellek her müşteride kırılıyordu (hit oranı 0).
 
 ### Zorunlu-parça kilidi
-Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bir düzeltme turuyla** yeniden çağrılır. Kurallardan bazıları: `selamlama-isim`, `fiyat-listesi-eksik`, `liste-tekrari`, `kapsamsiz-ilk-fiyat`, `kapsama-dahil-kalem-fiyati`, `arac-tekrar-soruldu`, `cumle-tekrari`, `kuru-acilis`, `ozelliksiz-liste`, `kompleye-kismi-teklifi`, `fiyati-araca-bagladi`. (`randevuda-telefon-yok` **15 Ağustos'ta kaldırıldı** — Fatih Bey numara istenmesinden vazgeçti.)
+Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bir düzeltme turuyla** yeniden çağrılır. Kurallardan bazıları: `selamlama-isim`, `fiyat-listesi-eksik`, `liste-tekrari`, `kapsamsiz-ilk-fiyat`, `kapsama-dahil-kalem-fiyati`, `arac-tekrar-soruldu`, `cumle-tekrari`, `kuru-acilis`, `ozelliksiz-liste`, `kompleye-kismi-teklifi`, `fiyati-araca-bagladi`, `renk-degisiminde-fiyat`. (`randevuda-telefon-yok` **15 Ağustos'ta kaldırıldı** — Fatih Bey numara istenmesinden vazgeçti.)
 
 **Düzeltme turuna süre bütçesi var** (`MOTOR_DUZELTME_BUTCE_MS`, varsayılan 8 sn): ilk çağrı bütçeyi aştıysa yalnızca `agir: true` işaretli eksikler (yanlış/eksik fiyat) ikinci tura çıkar. Biçimsel kusur için müşteri bir dakika daha bekletilmez. Hafif eksikler modelsiz düzeltilir (`hafifEksikleriKodlaDuzelt`).
 
@@ -199,7 +202,7 @@ cd app && npm run bedava:dogrula
 
 | Sınav | Ne kanıtlar |
 |---|---|
-| `kilit:dogrula` (15 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu |
+| `kilit:dogrula` (26 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** |
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
 | `kampanya:dogrula` (4 vaka) | Kampanya yanlış müşteriye sızıyor mu |
