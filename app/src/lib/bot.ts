@@ -42,6 +42,20 @@ const MESAI_DISI_KILIT_SAAT = 8
 export const SON_CARE_METNI =
   'Kusura bakmayın, sistemimizde anlık bir aksaklık oldu. Ekibimiz birazdan size dönüş sağlayacak.'
 
+/**
+ * Son çare cümlesi aynı yazışmaya bu süre içinde bir kez gider.
+ *
+ * ⚠ 15 Ağustos (Fatih Bey, ekran görüntüsü): aynı müşteriye 08:00'den itibaren
+ * her 5 dakikada bir "Kusura bakmayın, sistemimizde anlık bir aksaklık oldu"
+ * gitmiş. Sebep sabah kuyruğuydu: motor patlıyor, son çare cümlesi gidiyor ama
+ * `mesai_bekliyor` bayrağı TEMİZLENMİYORDU, dolayısıyla konuşma kuyrukta
+ * kalıyor ve cron her turda aynı hatayı tekrarlıyordu. İki koruma birden
+ * kondu: bayrak hata yolunda da temizleniyor (asıl düzeltme) ve son çare
+ * cümlesi süre kilidine bağlandı (ikinci savunma — kuyruk dışı bir yol aynı
+ * döngüyü kurarsa müşteri yine spam yemesin).
+ */
+const SON_CARE_KILIT_SAAT = 6
+
 export type BotSonuc =
   | {
       tamam: true
@@ -220,20 +234,39 @@ export async function botCevapla(
     // müşteriye insan gibi bir cümle gider ve ekibe devir bayrağı düşer —
     // sessizlik en kötü sonuçtur.
     try {
-      await gidenMesajGonder(konusmaId, SON_CARE_METNI, 'bot')
-
       const { data: guncelKonusma } = await db
         .from('conversations')
         .select('meta')
         .eq('id', konusmaId)
         .maybeSingle()
       const meta = (guncelKonusma?.meta ?? {}) as Record<string, unknown>
-      if (!meta.devir_bayrak_at) {
-        await db
-          .from('conversations')
-          .update({ meta: { ...meta, devir_bayrak_at: simdi.toISOString() } as Json })
-          .eq('id', konusmaId)
+
+      // Son çare cümlesi bu yazışmaya yakın zamanda zaten gitti mi.
+      const oncekiSonCare = meta.son_care_at
+      const sonCareKilitli =
+        typeof oncekiSonCare === 'string' &&
+        simdi.getTime() - new Date(oncekiSonCare).getTime() < SON_CARE_KILIT_SAAT * 3600_000
+
+      if (!sonCareKilitli) {
+        await gidenMesajGonder(konusmaId, SON_CARE_METNI, 'bot')
       }
+
+      // ⛔ Bayrağı hata yolunda da temizle. Bunu atlamak, sabah kuyruğunun aynı
+      // konuşmayı her 5 dakikada bir yeniden denemesi demekti (15 Ağustos hatası).
+      // Cevabı ekip yazacak; kuyrukta beklemesinin bir faydası yok.
+      const kalanMeta = { ...meta }
+      delete kalanMeta.mesai_bekliyor
+
+      await db
+        .from('conversations')
+        .update({
+          meta: {
+            ...kalanMeta,
+            ...(sonCareKilitli ? {} : { son_care_at: simdi.toISOString() }),
+            ...(meta.devir_bayrak_at ? {} : { devir_bayrak_at: simdi.toISOString() }),
+          } as Json,
+        })
+        .eq('id', konusmaId)
     } catch (ikincil) {
       // Buraya düşmek "müşteri hiçbir şey görmedi" demektir — en ağır durum,
       // izi Vercel loguyla birlikte kaybolmamalı.
@@ -405,13 +438,37 @@ export async function mesaiKuyrugunuIslet(
   let atlandi = 0
 
   for (const konusma of bekleyenler ?? []) {
+    let basarili = false
     try {
       const sonuc = await botCevapla(konusma.id, { simdi: an })
+      basarili = sonuc.tamam
       if (sonuc.tamam) cevaplandi += 1
       else atlandi += 1
     } catch (e) {
       console.error('[bot] sabah cevabı yazılamadı:', e)
       atlandi += 1
+    }
+
+    // ⛔ SON SAVUNMA (15 Ağustos): cevap yazılamadıysa yazışmayı kuyruktan
+    // KESİNLİKLE çıkar. `botCevapla` bayrağı kendi de temizliyor ama oraya hiç
+    // varamayan yollar var (konuşma okunamadı, geçmiş boş, fonksiyon throw etti).
+    // Bayrak kalırsa cron aynı konuşmayı 5 dakikada bir yeniden dener ve müşteri
+    // aynı cümleyi arka arkaya yer — sahada tam olarak bu oldu.
+    if (!basarili) {
+      try {
+        const { data: guncel } = await db
+          .from('conversations')
+          .select('meta')
+          .eq('id', konusma.id)
+          .maybeSingle()
+        const meta = { ...((guncel?.meta ?? {}) as Record<string, unknown>) }
+        if (meta.mesai_bekliyor) {
+          delete meta.mesai_bekliyor
+          await db.from('conversations').update({ meta: meta as Json }).eq('id', konusma.id)
+        }
+      } catch (e) {
+        await hataKaydet('bot', 'sabah kuyruğu bayrağı temizlenemedi', e, konusma.id)
+      }
     }
   }
 

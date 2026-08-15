@@ -90,7 +90,12 @@ export const YANIT_SEMASI: JsonSema = {
     randevu_talebi: {
       type: 'string',
       description:
-        'Müşteri gün/saat söylediyse kendi kelimeleriyle, ör. "cumartesi öğleden sonra". Yoksa boş metin.',
+        'SADECE müşteri somut bir gün ya da saat söylediyse doldur, kendi kelimeleriyle: ' +
+        '"cumartesi öğleden sonra", "yarın 14:00", "20 Ağustos sabah". ' +
+        'Müşterinin yalnızca randevu İSTEMESİ yetmez ("randevu alabilir miyim", "ne zaman ' +
+        'müsaitsiniz", "gelmek istiyorum") — gün/saat yoksa boş metin. Selamlama, fiyat sorusu ' +
+        've genel merak bu alanı ASLA doldurmaz. Şüphedeysen boş bırak: müşteri gününü ' +
+        'söylediğinde bir sonraki turda yazarsın.',
     },
     randevu_zaman: {
       type: 'string',
@@ -217,6 +222,50 @@ export function randevuZamaniCoz(deger: unknown, simdi: Date = new Date()): stri
 }
 
 /**
+ * Randevu talebi metni GERÇEKTEN bir gün/saat işaret ediyor mu.
+ *
+ * ⚠ KOD KİLİDİ. 15 Ağustos (Fatih Bey): "En ufak merhaba mesajına bile randevu
+ * alıyor" — müşteri sadece "merhaba" yazdığında Telegram'a randevu bildirimi
+ * düşüyor, panele randevu satırı açılıyordu. Model bu alanı niyet sezdiği anda
+ * dolduruyor ("randevu almak istiyor", "görüşmek istiyor", hatta selamlamayı
+ * kopyalayıp), oysa alanın sözleşmesi "müşterinin söylediği gün/saat".
+ *
+ * Prompt tek başına yetmez (bu ders üç kez tekrarlandı), o yüzden kilit burada:
+ * metinde somut bir zaman işareti yoksa randevu talebi YOK sayılır. Bot yine
+ * randevu konuşmaya devam eder — sadece panele kayıt ve Telegram bildirimi
+ * müşteri gerçek bir gün söyleyene kadar beklemez.
+ *
+ * Yanlış alarmın maliyeti asimetrik: kaçan gerçek randevu bir sonraki turda
+ * müşteri gün söyleyince yakalanır, ama her "merhaba"ya bildirim gitmesi
+ * bildirimin tamamını değersizleştirir.
+ */
+export function randevuTalebiGecerliMi(ham: string): boolean {
+  const m = ham.toLocaleLowerCase('tr-TR')
+
+  // Modelin "alan boş" demek için kullandığı kalıplar.
+  if (/^(yok|bilinmiyor|belirtilmedi|belirsiz|-|yok\.)$/.test(m.trim())) return false
+
+  const isaretler: RegExp[] = [
+    // Hafta günleri (ekleriyle: "cumartesiye", "salı günü")
+    /\b(pazartesi|salı|sali|çarşamba|carsamba|perşembe|persembe|cuma|cumartesi|pazar)/,
+    // Göreli gün ifadeleri
+    /\b(bugün|bugun|yarın|yarin|öbür gün|obur gun|ertesi gün|hafta ?sonu|haftaya|önümüzdeki|onumuzdeki|gelecek hafta|bu akşam|bu aksam)/,
+    // Günün bölümleri
+    /\b(sabah|öğlen|oglen|öğleden sonra|ogleden sonra|akşam|aksam|gece|öğle|ogle)/,
+    // Saat: "14:00", "14.30", "saat 3", "3'te", "10 gibi"
+    /\b\d{1,2}[:.]\d{2}\b/,
+    /\bsaat\s*\d{1,2}\b/,
+    /\b\d{1,2}\s*('|’)?(te|ta|de|da)\b/,
+    /\b\d{1,2}\s*gibi\b/,
+    // Tarih: "20.08", "20/08", "20 ağustos"
+    /\b\d{1,2}[./]\d{1,2}\b/,
+    /\b\d{1,2}\s*(ocak|şubat|subat|mart|nisan|mayıs|mayis|haziran|temmuz|ağustos|agustos|eylül|eylul|ekim|kasım|kasim|aralık|aralik)/,
+  ]
+
+  return isaretler.some((k) => k.test(m))
+}
+
+/**
  * Sağlayıcıdan gelen ham nesneyi doğrular ve TypeScript tipine çevirir.
  * Şema zorlandığı için burada onarım değil, doğrulama yapılır: bozuksa patlar.
  */
@@ -256,6 +305,11 @@ export function ciktiyiCoz(ham: unknown): YapiliCikti {
       ? (listeHam as ListeAnahtari)
       : null
 
+  // Randevu talebi ancak somut bir gün/saat işaret ediyorsa kayda değer.
+  // Gerekçe: randevuTalebiGecerliMi'nin başında ("merhaba"ya randevu açılması).
+  const randevuHam = bosaNull(n.randevu_talebi)
+  const randevuTalebi = randevuHam && randevuTalebiGecerliMi(randevuHam) ? randevuHam : null
+
   return {
     mesajlar,
     niyet,
@@ -264,10 +318,10 @@ export function ciktiyiCoz(ham: unknown): YapiliCikti {
     fiyat_verilebilir_mi: fiyatVerilebilir,
     devir_gerekli_mi: n.devir_gerekli_mi === true,
     devir_sebebi: n.devir_gerekli_mi === true ? devirSebebi : null,
-    randevu_talebi: bosaNull(n.randevu_talebi),
+    randevu_talebi: randevuTalebi,
     // Zaman ancak talep varsa anlamlı: talep yokken gelen tarih modelin
     // kendi kendine kurduğu bir randevudur, kaydedilmez.
-    randevu_zaman: bosaNull(n.randevu_talebi) ? randevuZamaniCoz(n.randevu_zaman) : null,
+    randevu_zaman: randevuTalebi ? randevuZamaniCoz(n.randevu_zaman) : null,
     gorsel_notu: bosaNull(n.gorsel_notu),
     fiyat_gorseli: fiyatGorseli,
     fiyat_listesi: fiyatListesi,

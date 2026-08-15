@@ -2,7 +2,7 @@
 
 Eryaman Garaj'ın Instagram ve WhatsApp mesajlarını yanıtlayan yapay zeka sistemi. Bu dosya sistemin çalışma mantığını, kilitlenmiş iş kurallarını ve geliştirme sırasında öğrenilen dersleri tutar. Yeni bir oturum bunu okuyup kaldığı yerden devam edebilir.
 
-Son güncelleme: **14 Ağustos 2026**
+Son güncelleme: **15 Ağustos 2026**
 
 ---
 
@@ -44,6 +44,7 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Konu | Karar |
 |---|---|
 | Çalışma saati | 08:00 – 01:00 tam çalışır. 01:00–08:00 arası tek "mesai dışındayız" mesajı, sabah devam eder |
+| Proaktif sessiz saat | **22:00 – 08:00.** Botun KENDİ başlattığı mesaj (takip merdiveni + randevu hatırlatması) bu aralıkta gitmez, sabah 08:00'e kaydırılır. Gelen mesaja cevap yine 01:00'e kadar sürer — ikisi ayrı pencere (15 Ağustos) |
 | Fiyatla açma | **YASAK.** *"Müşteri genelde fiyat soruyor, akıcı bir sohbetten sonra en son fiyat verilebilir"* |
 | Fiyat sırası | **kapsam** (kaç parça / kaç cam) → fiyat. Araç şartı yok, standart fiyatlandırma |
 | SUV/binek farkı | Rakamlar standart, bot araca göre fiyat değiştirmez. *"SUV modellerimiz için fiyatlarda değişkenlik gösterebiliyor"* diyebilir; **"fark yok" diyemez** |
@@ -59,6 +60,7 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Fotoğraf | Bot bakar, aracı okur, notu panele düşer, **fiyat kesmez** |
 | Fiyat listesi görseli | Bot gönderir. Metin fiyatıyla aynı kurala tabi: kapsam netleşmeden görsel yok |
 | Randevu | Bot **net gün/saat sorar** ve iletişim numarası ister. Kayıt panele **onay beklemeden** düşer (14 Ağustos kararı); ekip zamanı düzeltir ya da iptal eder |
+| Randevu kaydı ne zaman açılır | **Sadece somut gün/saat söylenirse.** Niyet yetmez ("randevu alabilir miyim", "gelmek istiyorum", selamlama). **Kod kilidi var** (`randevuTalebiGecerliMi`): 15 Ağustos'ta "merhaba"ya bile randevu bildirimi düşüyordu |
 | Randevu hatırlatması | Randevudan **24 saat önce**; o an geçmişse randevu günü **10:00**, o da geçmişse **2 saat önce**; randevuya 2 saatten az kaldıysa gönderilmez |
 | Instagram'da randevu | Müşteri **WhatsApp'a yönlendirilir** (0531 734 26 59). Sebep: Instagram'da 24 saat penceresi duruyor, hatırlatma her zaman gönderilemiyor. Bir kez söylenir, ısrar edilmez |
 | Takip merdiveni | **3. saat** → **20. saat**, ikisi de ücretsiz. 14 Ağustos: 20 dakikalık basamak kaldırıldı (fazla ısrarcı), 25. saat şablon basamağı da kaldırıldı (Evolution'da Meta şablonu ve 24 saat penceresi yok) |
@@ -157,6 +159,8 @@ Doğrulama: `npm run randevu:dogrula` (🆓 18 vaka) · `npm run randevu:uctan-u
 
 Kurulum: `npm run cron:kur` · Durum: `npm run cron:kur -- --durum`
 
+⚠ **Cron'un tekrarladığı bir iş, kendini kuyruktan çıkarmayı unutmuş olabilir.** 15 Ağustos'ta bir müşteri 08:00'den itibaren **her 5 dakikada bir** "Kusura bakmayın, sistemimizde anlık bir aksaklık oldu" mesajı aldı. Sabah kuyruğu (`mesaiKuyrugunuIslet`) `botCevapla`'yı çağırıyor, motor patlıyor, son çare cümlesi gidiyor — ama `meta.mesai_bekliyor` bayrağı **yalnızca başarı yolunda** temizleniyordu. Konuşma kuyrukta kalınca cron aynı hatayı sonsuza dek tekrarladı. **Kuyruktan çıkarma işlemi hata yoluna da yazılmalı**, ayrıca müşteriye giden her tekrarlanabilir cümlenin süre kilidi olmalı (`SON_CARE_KILIT_SAAT`).
+
 ### Veri temizliği
 `public.eski_verileri_temizle()` — konuşmalar 180 gün, test/mock 30 gün, kuyruk ve `activity_log` 60 gün sonra silinir. **Randevu talepleri, randevusu olan konuşmalar, devirdeki konuşmalar, ayarlar ve bot eğitimi asla silinmez.**
 
@@ -196,7 +200,7 @@ cd app && npm run bedava:dogrula
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
 | `kampanya:dogrula` (4 vaka) | Kampanya yanlış müşteriye sızıyor mu |
 | `kanal:dogrula` (23 vaka) | Her iki webhook çözücüsü — özellikle `fromMe` / `is_echo` sonsuz döngü koruması |
-| `randevu:dogrula` (18 vaka) | Randevu tarihi çözücüsü + hatırlatma anı ve metni |
+| `randevu:dogrula` (41 vaka) | Randevu tarihi çözücüsü + hatırlatma anı/metni + **randevu talebi filtresi** + **proaktif sessiz saat** |
 
 Ayrıca: `npx tsc --noEmit`, `npm run zamanlanmis:dogrula` (⚠ yerel dev sunucu şart), `node scripts/konsol-dogrula.mjs <e-posta> <şifre>`.
 

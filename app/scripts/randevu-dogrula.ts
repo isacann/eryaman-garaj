@@ -7,7 +7,8 @@
 // karıştırırsa yanlış güne mesaj gider — müşteri gözünde sistem güvenilmez
 // olur. Tarih doğrulaması bu yüzden koda kilitli, modele bırakılmadı.
 
-import { randevuZamaniCoz } from '../src/lib/motor/sema'
+import { randevuTalebiGecerliMi, randevuZamaniCoz } from '../src/lib/motor/sema'
+import { proaktifSessizMi } from '../src/lib/motor/saat'
 import { hatirlatmaAni, randevuHatirlatmaMetni } from '../src/lib/randevu'
 
 // Sabit "şimdi": 14 Ağustos 2026 Cuma, 12:00 Türkiye saati.
@@ -237,7 +238,78 @@ for (const m of metinVakalari) {
   }
 }
 
-const toplam = VAKALAR.length + anVakalari.length + metinVakalari.length
+// ── Randevu talebi filtresi (Fatih Bey, 15 Ağustos: "en ufak merhaba mesajına
+// bile randevu alıyor"). Kayda değer olan gün/saat; niyet değil.
+console.log('\nRandevu talebi filtresi — gün/saat yoksa kayıt açılmaz')
+console.log('─'.repeat(72))
+
+const talepVakalari: { metin: string; gecerli: boolean; neden: string }[] = [
+  // Reddedilmeli — sahadaki kusur bunlar
+  { metin: 'merhaba', gecerli: false, neden: 'Selamlama. Sahada randevu bildirimi düşürüyordu.' },
+  { metin: 'randevu almak istiyor', gecerli: false, neden: 'Niyet var, gün yok.' },
+  { metin: 'gelmek istiyor', gecerli: false, neden: 'Niyet var, gün yok.' },
+  { metin: 'ne zaman müsaitsiniz', gecerli: false, neden: 'Soru soruyor, gün söylemiyor.' },
+  { metin: 'fiyat sordu', gecerli: false, neden: 'Randevuyla alakasız.' },
+  { metin: 'yok', gecerli: false, neden: 'Modelin "alan boş" kalıbı.' },
+  { metin: 'birkaç güne', gecerli: false, neden: 'Belirsiz — hatırlatma kurulamaz.' },
+  // Kabul edilmeli — gerçek randevular kaçmamalı
+  { metin: 'yarın 14:00', gecerli: true, neden: 'Gün + saat.' },
+  { metin: 'cumartesi öğleden sonra', gecerli: true, neden: 'Hafta günü + bölüm.' },
+  { metin: 'bugün akşam', gecerli: true, neden: 'Göreli gün + bölüm.' },
+  { metin: 'salı sabah getireceğim', gecerli: true, neden: 'Hafta günü.' },
+  { metin: '20 Ağustos', gecerli: true, neden: 'Tarih.' },
+  { metin: '20.08 saat 10', gecerli: true, neden: 'Sayısal tarih + saat.' },
+  { metin: 'hafta sonu uğrayacak', gecerli: true, neden: 'Hafta sonu somut bir aralık.' },
+  { metin: 'saat 15 gibi', gecerli: true, neden: 'Saat söylenmiş.' },
+]
+
+for (const v of talepVakalari) {
+  const sonuc = randevuTalebiGecerliMi(v.metin)
+  const isaret = v.gecerli ? '' : '🔴 '
+  if (sonuc === v.gecerli) {
+    gecen++
+    console.log(`✓ ${isaret}"${v.metin}" → ${sonuc ? 'kayıt açılır' : 'kayıt açılmaz'}`)
+  } else {
+    dusenler.push(`randevu talebi "${v.metin}" — beklenen ${v.gecerli}, gelen ${sonuc}`)
+    console.log(`✗ ${isaret}"${v.metin}" → beklenen ${v.gecerli}, gelen ${sonuc} (${v.neden})`)
+  }
+}
+
+// ── Proaktif sessiz saat (Fatih Bey, 15 Ağustos: "gecenin 1'inde mesaj atıyor").
+// Mesai 01:00'e kadar sürer ama botun KENDİ başlattığı mesaj 22:00'de susar.
+console.log('\nProaktif sessiz saat — takip/hatırlatma gece gitmez')
+console.log('─'.repeat(72))
+
+const saatVakalari: { saat: string; sessiz: boolean; neden: string }[] = [
+  { saat: '2026-08-14T21:50:00+03:00', sessiz: false, neden: '22:00 öncesi, gönderilir.' },
+  { saat: '2026-08-14T22:00:00+03:00', sessiz: true, neden: 'Sınır anı — susar.' },
+  { saat: '2026-08-14T23:30:00+03:00', sessiz: true, neden: 'Gece.' },
+  { saat: '2026-08-15T00:50:00+03:00', sessiz: true, neden: 'SAHADAKİ KUSUR: bu saatte takip gitmişti.' },
+  { saat: '2026-08-15T03:00:00+03:00', sessiz: true, neden: 'Gece.' },
+  { saat: '2026-08-15T07:59:00+03:00', sessiz: true, neden: 'Açılıştan bir dakika önce.' },
+  { saat: '2026-08-15T08:00:00+03:00', sessiz: false, neden: 'Açılış — kuyruk boşalır.' },
+  { saat: '2026-08-15T14:00:00+03:00', sessiz: false, neden: 'Gündüz.' },
+]
+
+for (const v of saatVakalari) {
+  const an = new Date(v.saat)
+  const sonuc = proaktifSessizMi(an)
+  const yerel = v.saat.slice(11, 16)
+  if (sonuc === v.sessiz) {
+    gecen++
+    console.log(`✓ ${v.sessiz ? '🔴 ' : ''}${yerel} → ${sonuc ? 'sabaha ertelenir' : 'gönderilir'}`)
+  } else {
+    dusenler.push(`proaktif saat ${yerel} — beklenen ${v.sessiz}, gelen ${sonuc}`)
+    console.log(`✗ ${yerel} → beklenen ${v.sessiz}, gelen ${sonuc} (${v.neden})`)
+  }
+}
+
+const toplam =
+  VAKALAR.length +
+  anVakalari.length +
+  metinVakalari.length +
+  talepVakalari.length +
+  saatVakalari.length
 console.log('─'.repeat(72))
 console.log(`\n${gecen}/${toplam} kontrol geçti\n`)
 

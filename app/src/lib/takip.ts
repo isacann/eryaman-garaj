@@ -29,7 +29,7 @@
 import 'server-only'
 
 import { gidenMesajGonder } from '@/lib/mesajlar'
-import { mesaiDisiMi, sonrakiYerelSaat, VARSAYILAN_BASLANGIC } from '@/lib/motor/saat'
+import { PROAKTIF_BASLANGIC, proaktifSessizMi, sonrakiYerelSaat } from '@/lib/motor/saat'
 import { supabaseServis } from '@/lib/supabase/sunucu'
 import { hatirlatmaAni, randevuHatirlatmaMetni } from '@/lib/randevu'
 import { RANDEVU_HATIRLATMA, type Json, type TakipBasamagi } from '@/lib/db/types'
@@ -104,12 +104,17 @@ async function ayarlariOku(): Promise<{
 }
 
 /**
- * Takip mesajı gece yarısı gitmez. Planlanan an mesai dışına düşerse
- * sabah açılışa (08:00) kaydırılır — KAPSAM karar 5'in takip kuyruğuna yansıması.
+ * Botun kendi başlattığı mesaj gece gitmez. Planlanan an proaktif pencerenin
+ * (08:00–22:00) dışına düşerse sabah açılışa kaydırılır.
+ *
+ * ⚠ 15 Ağustos: burası eskiden `mesaiDisiMi` bakıyordu, yani 01:00'e kadar
+ * "gönderilebilir" sayıyordu ve takip mesajı sahada 00:50'de gitti. Mesai
+ * penceresi gelen mesaja CEVABI yönetir; botun kendi başlattığı mesajın penceresi
+ * ayrıdır (bkz. saat.ts / PROAKTIF_BITIS).
  */
-export function mesaiyeKaydir(an: Date): Date {
-  if (!mesaiDisiMi(an)) return an
-  return sonrakiYerelSaat(VARSAYILAN_BASLANGIC, an)
+export function proaktifeKaydir(an: Date): Date {
+  if (!proaktifSessizMi(an)) return an
+  return sonrakiYerelSaat(PROAKTIF_BASLANGIC, an)
 }
 
 /**
@@ -137,7 +142,7 @@ export async function takipPlanla(konusmaId: string, referans: Date = new Date()
   if (!takipAktif) return
 
   for (const adim of MERDIVEN) {
-    const planlanan = mesaiyeKaydir(
+    const planlanan = proaktifeKaydir(
       new Date(referans.getTime() + adim.dakika * 60_000),
     )
 
@@ -210,7 +215,7 @@ export async function randevuHatirlatmasiPlanla(
   const hedef = hatirlatmaAni(randevu, simdi)
   if (!hedef) return
 
-  const planlanan = mesaiyeKaydir(hedef)
+  const planlanan = proaktifeKaydir(hedef)
 
   await db.from('followups').upsert(
     {
@@ -240,6 +245,12 @@ export async function bekleyenTakipleriGonder(
   const { takipAktif, metinler } = await ayarlariOku()
 
   if (!takipAktif) return { gonderildi: 0, iptal: 0 }
+
+  // ⛔ İKİNCİ KAPI (15 Ağustos). Planlama anında proaktifeKaydir zaten geceyi
+  // sabaha atıyor, ama kuyrukta eski kurallarla planlanmış satırlar ve gecikmiş
+  // cron turları var. Gece hiçbir şey göndermemek, o satırların sabahı
+  // beklemesi demektir — kaybolmazlar, 08:00 turunda gönderilirler.
+  if (proaktifSessizMi(an)) return { gonderildi: 0, iptal: 0 }
 
   const { data: kuyruk } = await db
     .from('followups')
@@ -366,6 +377,11 @@ export async function randevuHatirlatmalariniGonder(
 ): Promise<{ gonderildi: number; iptal: number }> {
   const db = supabaseServis()
 
+  // Randevu hatırlatması da botun kendi başlattığı bir mesajdır: gece gitmez.
+  // "Yarın saat 10:00 için bekliyoruz" cümlesini 23:30'da göndermek, hatırlatma
+  // olmaktan çıkıp rahatsızlık olur; sabah 08:00 turunda gider.
+  if (proaktifSessizMi(an)) return { gonderildi: 0, iptal: 0 }
+
   const { data: kuyruk } = await db
     .from('followups')
     .select('id, conversation_id, planlanan_at, meta')
@@ -414,7 +430,7 @@ export async function randevuHatirlatmalariniGonder(
     if (hedef && hedef.getTime() > an.getTime()) {
       await db
         .from('followups')
-        .update({ planlanan_at: mesaiyeKaydir(hedef).toISOString() })
+        .update({ planlanan_at: proaktifeKaydir(hedef).toISOString() })
         .eq('id', satir.id)
       continue
     }
