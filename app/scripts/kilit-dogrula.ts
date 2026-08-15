@@ -294,6 +294,12 @@ console.log('\nHitap adı — soyadıyla hitap etmesin')
 
 const ISIM_VAKALARI: { girdi: string | null; bekleniyor: string | null; neden: string }[] = [
   { girdi: 'Asım ALTUN', bekleniyor: 'Asım', neden: 'Sahadaki kusur, büyük harfli soyad.' },
+  // ⚠ Bu vaka ilk düzeltmeyi DÜŞÜRDÜ: emoji ada bitişik, boşlukla bölme çalışmıyor.
+  { girdi: 'Yusuf❤️Dilek', bekleniyor: 'Yusuf', neden: 'Sahada 15 Ağustos: emoji bitişik, boşluk yok.' },
+  { girdi: 'Yusuf ❤️ Dilek', bekleniyor: 'Yusuf', neden: 'Emoji ayrıysa da aynı sonuç.' },
+  { girdi: '~Ahmet Yılmaz', bekleniyor: 'Ahmet', neden: 'WhatsApp pushName başına ~ koyabiliyor.' },
+  { girdi: '🚗Murat', bekleniyor: 'Murat', neden: 'Adın ÖNÜNDE emoji.' },
+  { girdi: '905551234567', bekleniyor: null, neden: 'Harf yoksa ad da yok; numarayla hitap edilmez.' },
   { girdi: 'Mustafa Kemiksiz', bekleniyor: 'Mustafa', neden: 'Sahadaki ikinci kusur.' },
   { girdi: 'Emre', bekleniyor: 'Emre', neden: 'Tek kelime olduğu gibi kalır.' },
   { girdi: '  Ayşe   Yılmaz  ', bekleniyor: 'Ayşe', neden: 'Fazla boşluk bozmamalı.' },

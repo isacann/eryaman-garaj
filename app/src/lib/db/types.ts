@@ -54,6 +54,8 @@ export type Conversation = {
   pencere_bitis_at: string | null
   devir_at: string | null
   okundu_at: string | null
+  /** Çalışan bot turunun kilidi. null = boş. Bkz. lib/gelen-tur.ts */
+  bot_tur_at: string | null
   meta: Json
   created_at: string
   updated_at: string

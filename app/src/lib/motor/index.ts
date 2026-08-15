@@ -820,8 +820,20 @@ export function eksikleriBul(
 export function ilkAd(tamAd: string | null | undefined): string | null {
   const temiz = tamAd?.trim()
   if (!temiz) return null
-  const ilk = temiz.split(/\s+/)[0]
-  return ilk === '' ? null : ilk
+
+  // ⚠ BOŞLUKLA BÖLMEK YETMİYOR (15 Ağustos, ikinci tur). İlk sürüm
+  // `split(/\s+/)[0]` yapıyordu ve sahada "Yusuf❤️Dilek" geldi — emoji ADA
+  // BİTİŞİK, arada boşluk yok. Bölme çalışmadı, tam ad olduğu gibi geçti ve
+  // "Merhabalar Yusuf ❤️Dilek, hoşgeldiniz." gitti.
+  //
+  // Doğru soru "ilk kelime ne" değil, "ilk AD ne": metindeki ilk harf dizisi.
+  // Böylece emoji, ~ işareti (WhatsApp pushName'e ekliyor), noktalama ve
+  // rakam kendiliğinden dışarıda kalıyor.
+  //
+  // \p{M} birleşik aksan işaretleri için: bazı Türkçe adlar ayrık kodlanmış
+  // aksanla geliyor ve onsuz ad ortadan kesilirdi.
+  const eslesme = temiz.match(/\p{L}[\p{L}\p{M}'’-]*/u)
+  return eslesme ? eslesme[0] : null
 }
 
 /** Bir tur cevap üretir. Sistem promptu her çağrıda güncel fiyat listesiyle kurulur. */

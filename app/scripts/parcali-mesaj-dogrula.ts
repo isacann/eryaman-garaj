@@ -123,6 +123,89 @@ async function main() {
     await db.from('contacts').delete().eq('id', konusma.contact_id)
   }
 
+  // ── TUR KİLİDİ ───────────────────────────────────────────────────────────
+  //
+  // ⚠ 15 Ağustos, sahada: yerleşme süresi TEK BAŞINA yetmiyor. Yerleşme
+  // "müşteri hâlâ yazıyor mu" sorusunu cevaplıyor, "önceki tur bitti mi"
+  // sorusunu DEĞİL. İkinci mesaj yerleşme penceresinden SONRA gelirse ilk tur
+  // çoktan modele gitmiş ama cevabını henüz yazmamış olur; ikinci tur geçmişte
+  // hiç bot mesajı görmez ve baştan selamlar. Müşteri iki karşılama aldı.
+  //
+  // Kilidin tek kritik özelliği ATOMİK olması: iki tur aynı anda denediğinde
+  // yalnızca biri almalı. "Önce oku, sonra yaz" yazsaydık ikisi de boş görüp
+  // ikisi de alırdı — sınanan tam olarak bu.
+  console.log('\nTur kilidi — aynı anda iki tur, biri beklemeli')
+  console.log('─'.repeat(72))
+
+  const { turKilidiAl, turKilidiniBirak } = await import('../src/lib/gelen-tur')
+
+  const { data: kilitKisi } = await db
+    .from('contacts')
+    .insert({ kanal: 'test', kanal_kimlik: `kilit-sinav-${Date.now()}`, ad: 'Kilit' })
+    .select('id')
+    .single()
+  const { data: kilitKonusma } = await db
+    .from('conversations')
+    .insert({ contact_id: kilitKisi!.id, kanal: 'test', durum: 'bot' })
+    .select('id')
+    .single()
+  const kid = kilitKonusma!.id
+
+  // İki tur aynı anda kilidi istiyor.
+  const yarisSonuc = await Promise.all([
+    turKilidiAl(kid, new Date()),
+    turKilidiAl(kid, new Date()),
+  ])
+  const alanSayisi = yarisSonuc.filter(Boolean).length
+
+  // Kilit doluyken üçüncü bir tur giremez.
+  const ucuncu = await turKilidiAl(kid, new Date())
+
+  // Bırakıldıktan sonra yeniden alınabilir.
+  await turKilidiniBirak(kid)
+  const birakmaSonrasi = await turKilidiAl(kid, new Date())
+  await turKilidiniBirak(kid)
+
+  // Ömrü dolmuş kilit yolu tıkamaz (tur çöktüyse konuşma sağır kalmamalı).
+  await db
+    .from('conversations')
+    .update({ bot_tur_at: new Date(Date.now() - 120_000).toISOString() })
+    .eq('id', kid)
+  const eskimisDevralindi = await turKilidiAl(kid, new Date())
+  await turKilidiniBirak(kid)
+
+  kontroller.push(
+    {
+      ad: 'Aynı anda iki istekten YALNIZCA biri kilidi aldı',
+      gecti: alanSayisi === 1,
+      detay: `${alanSayisi} tur aldı — 2 ise kilit atomik değil, sahadaki çift cevap geri gelir`,
+    },
+    {
+      ad: 'Kilit doluyken üçüncü tur giremedi',
+      gecti: ucuncu === false,
+      detay: `üçüncü deneme: ${ucuncu}`,
+    },
+    {
+      ad: 'Bırakıldıktan sonra yeniden alınabiliyor',
+      gecti: birakmaSonrasi === true,
+      detay: `${birakmaSonrasi} — false ise konuşma kalıcı sağır kalır`,
+    },
+    {
+      ad: 'Ömrü dolmuş kilit devralınıyor (çöken tur yolu tıkamaz)',
+      gecti: eskimisDevralindi === true,
+      detay: `${eskimisDevralindi} — false ise çöken bir tur konuşmayı sonsuza dek kilitler`,
+    },
+  )
+
+  console.log('')
+  for (const k of kontroller.slice(2)) {
+    console.log(`${k.gecti ? '✓' : '✗'} ${k.ad}`)
+    console.log(`    ${k.detay}`)
+  }
+
+  await db.from('conversations').delete().eq('id', kid)
+  await db.from('contacts').delete().eq('id', kilitKisi!.id)
+
   const gecen = kontroller.filter((k) => k.gecti).length
   console.log('─'.repeat(72))
   console.log(`\n${gecen}/${kontroller.length} kontrol geçti (sınav verisi temizlendi)\n`)

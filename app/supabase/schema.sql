@@ -66,12 +66,18 @@ create table if not exists public.conversations (
   pencere_bitis_at timestamptz,              -- Meta 24 saat müşteri hizmetleri penceresinin bitişi
   devir_at timestamptz,                      -- devre çıkıldığı an (karar 4: 15 dk kuralı buradan sayılır)
   okundu_at timestamptz,                     -- panelde en son ne zaman okundu
+  bot_tur_at timestamptz,                    -- çalışan bot turunun kilidi (null = boş); bkz. lib/gelen-tur.ts
   meta jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+-- Mevcut kurulumlar için: `create table if not exists` var olan tabloya kolon
+-- eklemiyor, o yüzden sonradan gelen her kolon ayrıca yazılır (15 Ağustos 2026).
+alter table public.conversations add column if not exists bot_tur_at timestamptz;
+
 comment on column public.conversations.durum is 'bot = yapay zeka cevaplıyor | devir = ekip devraldı, bot susar | kapali';
+comment on column public.conversations.bot_tur_at is 'Bir konuşmada aynı anda tek bot turu çalışsın diye kilit. Müşteri arka arkaya yazdığında iki tur paralel başlıyor ve ikisi de baştan selamlıyordu (15 Ağustos 2026). 90 sn sonra kendiliğinden düşer.';
 comment on column public.conversations.pencere_bitis_at is 'Müşterinin son mesajı + 24 saat. Sonrasında sadece onaylı şablon gider (ücretli).';
 
 create index if not exists conversations_son_mesaj_idx

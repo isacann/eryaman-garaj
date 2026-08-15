@@ -69,7 +69,7 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Bildirim | Telegram. Randevu / devir / sıcak müşteri anlık; gece gelenler sabaha ertelenir |
 | Bot kimliği | "Eryaman Garaj" adına konuşur, robot olup olmadığı sorulursa saklamaz |
 | Hitap | Erkek → bey, kadın → hanım, **unisex ya da emin değilse hitap yok**, sadece ad |
-| Hitapta ad | **Sadece ilk ad** (15 Ağustos). WhatsApp `pushName` tam ad getiriyor; "Asım ALTUN bey" gitti. Kod kilidi: `ilkAd()`, motorun girişinde |
+| Hitapta ad | **Sadece ilk ad** (15 Ağustos). WhatsApp `pushName` tam ad getiriyor; "Asım ALTUN bey" ve "Yusuf❤️Dilek" gitti. Kod kilidi `ilkAd()` motorun girişinde: **boşlukla değil, ilk HARF dizisiyle** ayırır — emoji/`~`/rakam ada bitişik gelebiliyor |
 | Renkli kaplama (renk değişimi) | ⛔ **Bot fiyat VERMEZ, devreder** (15 Ağustos). Standart liste yok; fiyat yüzey alanına, filme ve renge göre değişiyor. Bot hizmeti anlatır, aracı/isteneni öğrenir, ekip fiyatlar. **Ayrım:** "mat PPF" koruma kalemidir, fiyatı verilir; "kırmızı mat kaplama" renk dönüşümüdür, verilmez |
 
 ⚠ **Bir kural iki yerde yazılıyorsa ikisinin çelişmediğini kontrol et.** Bu ders üç kez tekrarlandı: karar `FIYAT-LISTESI.md` ya da `KAPSAM.md`'de güncellendi, `sistem-prompt.ts`'te eski hâli kaldı ve bot iki kaynağın arasında kaldı. **Bir karar değiştirdiğinde `sistem-prompt.ts`'i grep'le.**
@@ -113,6 +113,8 @@ Uygulamanın hiçbir yeri doğrudan WhatsApp'a ya da Instagram'a bağlanmaz; her
 | `whatsapp-cloud.ts` | Meta Cloud API — kullanılmıyor, dönüş ihtimaline karşı saklanıyor |
 | `instagram.ts` | **Meta resmî API** — kod tamam, ⚠ Live mode bekliyor |
 | `mock.ts`, `test.ts` | Sınav ve panel test konsolu |
+
+⚠ **Bir konuşmada aynı anda TEK bot turu çalışır** (`conversations.bot_tur_at`, `gelen-tur.ts`). Yerleşme süresi tek başına yetmiyordu: o yalnızca "müşteri hâlâ yazıyor mu" sorusunu cevaplıyor, "önceki tur bitti mi" sorusunu değil. İkinci mesaj yerleşme penceresinden sonra gelince ilk tur modele gitmiş ama cevabını yazmamış oluyor, ikinci tur geçmişte bot mesajı görmüyor ve **baştan selamlıyor** (15 Ağustos sahada: müşteri iki karşılama aldı, iki kat model parası ödendi). Kilit atomik — PATCH filtresi + dönen satır sayısı; "önce oku sonra yaz" yarışa açık olurdu. 90 sn sonra kendiliğinden düşer ki çöken bir tur konuşmayı sağır bırakmasın.
 
 ⚠ **Evolution'da en kritik filtre `fromMe`.** Kendi gönderdiğimiz mesaj webhook'a geri düşüyor; elenmezse bot kendi cevabını müşteri mesajı sanıp kendine cevap yazar ve sonsuz döngüye girer. Grup mesajları (`@g.us`) ve durum güncellemeleri de elenir. Hepsi `npm run kanal:dogrula` ile sınanıyor.
 
@@ -202,7 +204,8 @@ cd app && npm run bedava:dogrula
 
 | Sınav | Ne kanıtlar |
 |---|---|
-| `kilit:dogrula` (26 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** |
+| `kilit:dogrula` (31 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** |
+| `parcali:dogrula` (6 vaka) | Parçalı mesajda tek cevap + **tur kilidinin atomikliği** |
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
 | `kampanya:dogrula` (4 vaka) | Kampanya yanlış müşteriye sızıyor mu |
