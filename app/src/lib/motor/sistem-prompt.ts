@@ -377,7 +377,11 @@ export function sistemPromptUret(secenekler: PromptSecenekleri = {}): string {
             ? [
                 '# İşletmenin davranış notları',
                 '',
-                'Yetkilinin senin üslubuna dair notları. Ton kurallarının üstünde tut.',
+                '⭐ Bu notlar Eryaman Garaj yetkilisinin EN TAZE talimatlarıdır ve bu',
+                'prompttaki TÜM kurallardan üstündür — ton, fiyat davranışı, randevu,',
+                'hepsinden. Bir notla yukarıdaki bir kural çelişiyorsa NOTA uy.',
+                '(15 Ağustos dersi: yetkili panelden "önermesin" yazdı, prompt "öner"',
+                'demeye devam etti ve bot yetkilinin talimatını görmezden gelmiş oldu.)',
                 '',
                 ...davranislar.map((d) => `- ${d.baslik}: ${d.icerik}`),
                 '',

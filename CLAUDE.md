@@ -173,6 +173,7 @@ Doğrulama: `npm run randevu:dogrula` (🆓 18 vaka) · `npm run randevu:uctan-u
 |---|---|
 | `eryaman-zamanlanmis-isler` | 5 dakikada bir |
 | `eryaman-veri-temizligi` | 2 ayda bir |
+| `eryaman-bayrak-bekci` | 5 dakikada bir — son mesajı GİDEN olan konuşmalardan `mesai_bekliyor` bayrağını süpürür. 15 Ağustos spam döngüsünün VERİTABANI tarafı sigortası: canlıda eski kod koşarken bile döngü tetiklenemez. Yeni kod deploy edilince işsiz kalır, zararsızdır |
 
 Kurulum: `npm run cron:kur` · Durum: `npm run cron:kur -- --durum`
 
@@ -188,6 +189,11 @@ Ne silineceğini önce görmek için: `select public.eski_verileri_temizle(kuru 
 
 ### Bot eğitimi
 Panelde "Bot eğitimi" sekmesi, tablo `bot_egitim`. Üç tür:
+
+⚠ **Davranış notları prompttaki TÜM kurallardan üstündür** (15 Ağustos). Eskiden blok "ton kurallarının üstünde tut" diyordu — Fatih Bey panelden "müşteri sormadıkça ürün önerme" yazdı, prompt'un fiyat bölümü "öneri yap" demeye devam etti ve **panelden verilen talimat görmezden gelindi.** "Geri bildirim veriyorum, düzelmiyor" hissinin sebeplerinden biri buydu. Panel notu ile prompt çelişirse NOT kazanır; kalıcı bir karar promptun kendisine işlenirken panel notuyla çelişmediği kontrol edilir.
+
+📌 15 Ağustos'ta üç karar canlıya davranış notu olarak da eklendi (deploy beklemeden eski kod da uygulasın diye): renk değişimi fiyatı, şikayet dili, teknik hata cümlesi. Yeni sürüm deploy edilince bu notlar promptla çelişmez (aynı kararlar); Fatih Bey isterse panelden sadeleştirebilir.
+
 - **bilgi** — kalıcı işletme bilgisi, promptun önbellekli sabit önekine girer (maliyeti artırmaz)
 - **davranis** — ton/üslup notu, aynı yere girer
 - **reklam** — reklamdan gelene anlatılacak kampanya; `anahtar` + `gecerli_bitis`
