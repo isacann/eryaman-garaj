@@ -73,6 +73,7 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Dönen müşteri | Son yazışmanın üzerinden 24 saat+ geçtiyse bot kısa selamla açar ("tekrar hoşgeldiniz 😊") ve geçmişi hatırlayarak konuşur. Kod kilidi: `donen-selamsiz` — prompt istisnayı iki vurguya rağmen uygulamadı, selam kodla kuruluyor (15 Ağustos) |
 | İş başvurusu / eleman sorusu | Bot **hiç cevap vermez, pas geçer** (15 Ağustos). Mesaj panele düşer, `activity_log`'a `is_basvurusu_pas` yazılır; ekip isterse elle cevaplar. Kod: `is-basvurusu.ts`, tespit `gelen-tur.ts`'te bot turundan önce — model şema gereği "susamadığı" için karar kodda |
 | Ekip elle cevap yazarsa | Bot susar. **Panelden de, telefondan WhatsApp uygulamasından da** — ikisi de yazışmayı devre alır (15 Ağustos) |
+| Devirden geri dönüş | ⛔ **OTOMATİK DÖNÜŞ YOK — Fatih Bey'in açık talimatı (16 Ağustos): "hiç girmesin".** Ekip devraldığı konuşmaya bot bir daha kendiliğinden girmez, süre aşımı yok. Tek yol paneldeki "Bota geri ver" düğmesi. Bilinen bedel: geri verilmesi unutulan müşteri süresiz botsuz kalır ve "bot cevap vermiyor" gibi görünür — bu bir hata değil, işletme tercihi |
 | Motor patlarsa | Müşteriye **teknik hiçbir şey yazılmaz** (15 Ağustos). Devir bayrağı düşer, ekip 15 dk yazmazsa nötr cümle gider |
 | Bildirim | Telegram. Randevu / devir / sıcak müşteri anlık; gece gelenler sabaha ertelenir |
 | Bot kimliği | "Eryaman Garaj" adına konuşur, robot olup olmadığı sorulursa saklamaz |
