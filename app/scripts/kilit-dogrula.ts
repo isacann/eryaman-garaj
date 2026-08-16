@@ -48,6 +48,31 @@ const TEMEL: YapiliCikti = {
 } as YapiliCikti
 
 const VAKALAR: Vaka[] = [
+  // ── 16 Ağustos, sahada: "İkisinin de fiyatını alabilir miyim" fiyatsız kaldı ──
+  {
+    ad: 'fiyat-listesi-eksik (model false dese bile)',
+    kaynak: 'Sahada: kapsam netleşti, fiyat istendi, model fiyat_verilebilir_mi=false deyip fiyatsız cevap verdi',
+    bekleniyor: 'fiyat-listesi-eksik',
+    mesajlar: ['Ön 4 parça kapsamımız kaput, ön tampon, farlar ve aynalardan oluşuyor.'],
+    yapiliEzme: { fiyat_verilebilir_mi: false, kapsam: null },
+    sonMusteriMetni: 'İkisinin de fiyatını alabilir miyim',
+    tumMusteriMetni: 'ppf kaplatmak istiyorum\nİkisinin de fiyatını alabilir miyim',
+  },
+  {
+    ad: 'fiyat-listesi-eksik (yanlış alarm — kapsam gerçekten belirsiz)',
+    kaynak: 'Kapsam hiç netleşmemişse fiyatsız kapsam sorusu doğru cevaptır',
+    bekleniyor: null,
+    mesajlar: [
+      'Merhabalar Emre bey, hoşgeldiniz 😊',
+      'Aracınıza ön 4 parça mı yoksa komple kaplama mı düşünüyorsunuz?',
+    ],
+    yapiliEzme: { fiyat_verilebilir_mi: false, kapsam: null },
+    ilkCevapMi: true,
+    isim: 'Emre',
+    sonMusteriMetni: 'ppf fiyatı nedir',
+    tumMusteriMetni: 'ppf fiyatı nedir',
+  },
+
   // ── Fatih Bey, 15 Ağustos: dönen müşteri selamı ──────────────────────────
   {
     ad: 'donen-selamsiz',

@@ -493,11 +493,36 @@ export function eksikleriBul(
       baglam.tumMusteriMetni ?? baglam.sonMusteriMetni ?? '',
     )
 
+  // ⚠ 16 Ağustos, sahada: modelin `fiyat_verilebilir_mi` beyanına tek başına
+  // güvenmek boşluk bıraktı. Müşteri "İkisinin de fiyatını alabilir miyim"
+  // dedi (bot bir önceki turda "ön 4 mü komple mi" diye sormuştu — kapsam
+  // netleşmişti), model alanı false işaretledi ve kilit sustu; müşteriye
+  // FİYATSIZ tek cümle gitti. Artık müşterinin SÖZÜNE de bakılıyor: kapsamı
+  // açıkça söylemiş ya da sunulan seçenekleri kabul etmişse ("ikisi de")
+  // kilit, modelin beyanından bağımsız devreye girer.
+  //
+  // Meşru fiyatsız durumlar dışlanır: kısmi mat (hizmet yok), renk değişimi
+  // (rakam yasak), şikayet (satış dili yasak), devir (pazarlık/indirim).
+  // ⚠ Türkçe 'İ' tuzağı: /ikisi/i, "İkisinin" ile EŞLEŞMEZ (JS case folding
+  // İ↔i çiftini tanımıyor). Metin önce tr-lower'a çekilir.
+  const kapsamMetni = (baglam.tumMusteriMetni ?? baglam.sonMusteriMetni ?? '')
+    .toLocaleLowerCase('tr')
+  const kapsamNetlesti =
+    Boolean(yapili.kapsam) ||
+    /komple|tam kapsam|ön\s*3|ön\s*4|kaput|cam\s*film|5\s*cam|ikisi|her iki|hepsinin/.test(
+      kapsamMetni,
+    )
+  const fiyatsizOlmasiMesru =
+    kismiMatSorusu ||
+    yapili.devir_gerekli_mi === true ||
+    /renk\s*de[ğg]i[şs]|renkli\s*kaplama|giydirme/i.test(baglam.tumMusteriMetni ?? '') ||
+    /şikayet|kalm[ıi][şs]|kabarma|s[öo]k[üu]lmem/i.test(baglam.sonMusteriMetni ?? '')
+
   if (
-    yapili.fiyat_verilebilir_mi &&
+    (yapili.fiyat_verilebilir_mi || kapsamNetlesti) &&
     (fiyatSorusu || musteriFiyatDedi) &&
     yeniRakamlar.length === 0 &&
-    !kismiMatSorusu
+    !fiyatsizOlmasiMesru
   ) {
     eksikler.push({
       ad: 'fiyat-listesi-eksik',

@@ -22,6 +22,13 @@ import { ekipElleYazdiginiIsle } from '@/lib/mesajlar'
 
 export const runtime = 'nodejs'
 
+// ⚠ 16 Ağustos, sahada: bu satır YOKKEN Vercel varsayılan süre limiti, cevap
+// üretimi uzun süren bir bot turunu (yerleşme 12 sn + model + düzeltme turu)
+// after() içinde SESSİZCE kesti — ne cevap gitti ne hata kaydı düştü, müşteri
+// öylece cevapsız kaldı. Kesilen iş iz bırakmaz; tek belirti bot_tur_at'in
+// dolu kalmasıydı. Bot turunun tamamı bu limitin içinde yaşar.
+export const maxDuration = 300
+
 const API_ANAHTARI = process.env.EVOLUTION_API_KEY ?? ''
 const WEBHOOK_SIR = process.env.EVOLUTION_WEBHOOK_SIR ?? ''
 

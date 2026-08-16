@@ -28,6 +28,13 @@ import { supabaseServis } from '@/lib/supabase/sunucu'
 
 export const runtime = 'nodejs'
 
+// ⚠ 16 Ağustos, sahada: bu satır YOKKEN Vercel varsayılan süre limiti, cevap
+// üretimi uzun süren bir bot turunu (yerleşme 12 sn + model + düzeltme turu)
+// after() içinde SESSİZCE kesti — ne cevap gitti ne hata kaydı düştü, müşteri
+// öylece cevapsız kaldı. Kesilen iş iz bırakmaz; tek belirti bot_tur_at'in
+// dolu kalmasıydı. Bot turunun tamamı bu limitin içinde yaşar.
+export const maxDuration = 300
+
 const DOGRULAMA_JETONU = process.env.META_WEBHOOK_VERIFY_TOKEN ?? ''
 const APP_SECRET =
   process.env.META_INSTAGRAM_APP_SECRET ?? process.env.META_APP_SECRET ?? ''
