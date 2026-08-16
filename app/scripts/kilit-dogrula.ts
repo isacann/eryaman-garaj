@@ -12,7 +12,7 @@
 //
 // Çalıştır: npx tsx scripts/kilit-dogrula.ts
 
-import { eksikleriBul, hazirListeyiYerlestir, ilkAd } from '../src/lib/motor'
+import { eksikleriBul, hazirListeyiYerlestir, ilkAd, turIciTekrariAt } from '../src/lib/motor'
 import { isBasvurusuMu } from '../src/lib/is-basvurusu'
 import type { YapiliCikti } from '../src/lib/motor/types'
 
@@ -487,6 +487,48 @@ for (const v of BASVURU_VAKALARI) {
   }
 }
 
+// ── Tur içi tekrar (16 Ağustos: aynı cümlenin iki varyantı art arda gitti) ──
+console.log('\nTur içi tekrar — aynı cümle iki balonda gitmesin')
+
+const TEKRAR_VAKALARI: { ad: string; girdi: string[]; beklenen: number; neden: string }[] = [
+  {
+    ad: 'Sahadaki ikili → tek mesaj kalır',
+    girdi: [
+      'Ön 4 parça; kaput, ön tampon, farlar ve aynaları kapsıyor.',
+      'Ön 4 parça kapsamımız kaput, ön tampon, farlar ve aynalardan oluşuyor.',
+    ],
+    beklenen: 1,
+    neden: 'Birebir sahadaki çift; müşteri aynı cümleyi iki kez okudu.',
+  },
+  {
+    ad: 'Farklı içerikli mesajlar korunur',
+    girdi: [
+      'Merhabalar Emre bey, hoşgeldiniz 😊',
+      'Komple uygulamada ön 2 cam filmi, deri bakımı ve jant seramiği dahil.',
+      'Hangi seride ilerlemek istersiniz?',
+    ],
+    beklenen: 3,
+    neden: 'Normal akış üç ayrı mesaj; süzgeç dokunmamalı.',
+  },
+  {
+    ad: 'Kısa mesajlar süzülmez',
+    girdi: ['Tabii, yardımcı olalım.', 'Tabi, hemen yardımcı olayım.'],
+    beklenen: 2,
+    neden: 'Kısa nezaket cümleleri (kök sayısı < 4) yanlış pozitife açık; dokunulmaz.',
+  },
+]
+
+for (const v of TEKRAR_VAKALARI) {
+  const sonuc = turIciTekrariAt(v.girdi)
+  if (sonuc.length === v.beklenen) {
+    gecti += 1
+    console.log(`  ✓ ${v.ad} — ${sonuc.length} mesaj`)
+  } else {
+    kalanlar.push(v.ad)
+    console.log(`  ✗ ${v.ad} — beklenen ${v.beklenen}, gelen ${sonuc.length} (${v.neden})`)
+  }
+}
+
 // ── Hitap adı: soyadı düşürülüyor mu (Fatih Bey, 15 Ağustos) ──────────────
 // Sahada "Merhabalar Asım ALTUN bey" ve "Merhabalar Mustafa Kemiksiz bey"
 // gitti. Kaynak WhatsApp pushName: müşteri profiline tam adını yazıyor.
@@ -520,7 +562,7 @@ for (const v of ISIM_VAKALARI) {
   }
 }
 
-const TOPLAM = VAKALAR.length + YERLESIM_VAKALARI.length + ISIM_VAKALARI.length + BASVURU_VAKALARI.length
+const TOPLAM = VAKALAR.length + YERLESIM_VAKALARI.length + ISIM_VAKALARI.length + BASVURU_VAKALARI.length + TEKRAR_VAKALARI.length
 
 console.log(`\n${'─'.repeat(70)}`)
 console.log(`${gecti}/${TOPLAM} kilit doğru davrandı`)

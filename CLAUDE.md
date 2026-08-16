@@ -220,7 +220,7 @@ cd app && npm run bedava:dogrula
 
 | Sınav | Ne kanıtlar |
 |---|---|
-| `kilit:dogrula` (56 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** |
+| `kilit:dogrula` (61 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** |
 | `parcali:dogrula` (6 vaka) | Parçalı mesajda tek cevap + **tur kilidinin atomikliği** |
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |
@@ -327,5 +327,6 @@ Sabit ~5 sn taban, geri kalanın tamamı **çıktı uzunluğu**. Ölç: `npm run
 | Altın seti WhatsApp vakalarıyla genişletmek | 🟢 |
 
 **İşletmeden beklenen bilgiler:**
+- Ön 3 parça PPF'in parça dökümü (ön 4 tanımlandı: kaput + ön tampon + 2 ön çamurluk; ön 3 bilinmiyor, bot saymıyor)
 - Seramik kaplamada Nasiol ZR53 dışında kademe var mı
 - Instagram işletme doğrulaması için vergi levhası + unvan/telefon içeren ikinci belge

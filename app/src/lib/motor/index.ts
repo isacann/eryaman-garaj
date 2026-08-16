@@ -119,6 +119,45 @@ const LISTE_SATIRI = /^\s*(•|✅|▪|·|-|\*)\s*\S/
  */
 const URUN_BASLIGI = /^[^\n]{0,70}\d{1,3}[.,]\d{3}\s*₺/
 
+/**
+ * AYNI TURUN İÇİNDEKİ tekrarları ayıklar (16 Ağustos, sahada).
+ *
+ * Model tek turda aynı cümlenin iki varyantını art arda mesaj yazdı:
+ *   "Ön 4 parça; kaput, ön tampon, farlar ve aynaları kapsıyor."
+ *   "Ön 4 parça kapsamımız kaput, ön tampon, farlar ve aynalardan oluşuyor."
+ * `cumle-tekrari` kilidi yalnızca ÖNCEKİ turların metniyle karşılaştırıyordu;
+ * tur içi tekrarı kimse yakalamıyordu. Müşteri aynı cümleyi iki balonda okudu.
+ *
+ * Benzerlik, Türkçe ekleri türetme farklarını yutmak için 5 harflik köklerle
+ * ölçülür ("aynaları"/"aynalardan" → "aynal"). Jaccard ≥ 0.6 → sonraki atılır.
+ */
+export function turIciTekrariAt(mesajlar: string[]): string[] {
+  const kokler = (m: string): Set<string> =>
+    new Set(
+      sadelestir(m)
+        .split(' ')
+        .filter((k) => k.length > 2)
+        .map((k) => k.slice(0, 5)),
+    )
+
+  const cikti: string[] = []
+  for (const mesaj of mesajlar) {
+    const b = kokler(mesaj)
+    const tekrar =
+      b.size >= 4 &&
+      cikti.some((onceki) => {
+        const a = kokler(onceki)
+        if (a.size < 4) return false
+        let kesisim = 0
+        for (const k of b) if (a.has(k)) kesisim += 1
+        const birlesim = a.size + b.size - kesisim
+        return birlesim > 0 && kesisim / birlesim >= 0.6
+      })
+    if (!tekrar) cikti.push(mesaj)
+  }
+  return cikti
+}
+
 function listeyiTekMesajaTopla(mesajlar: string[]): string[] {
   const cikti: string[] = []
 
@@ -148,7 +187,9 @@ function listeyiTekMesajaTopla(mesajlar: string[]): string[] {
     cikti.push(mesaj)
   }
 
-  return cikti
+  // Tur içi tekrar süzgeci burada: bu fonksiyon her dönüş yolunda çağrılıyor,
+  // tek noktadan tüm yollar kapsanır.
+  return turIciTekrariAt(cikti)
 }
 
 /**
