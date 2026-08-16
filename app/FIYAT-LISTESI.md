@@ -55,15 +55,30 @@ Rakam eksik değil, iş yapılmıyor.
 **EXO Armor**'dur. Daha önce burada Ultimate Plus için yazıyordu, YANLIŞTI.
 - XPEL Ultimate Fusion: PPF + seramik teknolojisi, su itici ve kir tutmaz, üst düzey parlaklık
 
+### Kısmi kapsamların parça dökümü (Fatih Bey, 16 Ağustos 2026)
+
+Sahada bot "ön 4 parça"nın içeriğini UYDURDU ("kaput, ön tampon, farlar ve
+aynalar" dedi). Doğrusu ve tek kaynak burası:
+
+- **Ön 4 parça = kaput + ön tampon + 2 ön çamurluk.** Başka bir şey YOK
+  (far yok, ayna yok).
+- **Ön 3 parça:** parça dökümü işletmeden henüz alınmadı. Bot bu kapsamın
+  içeriğini SAYMAZ; sorulursa "parça detayını ekibimiz netleştirip iletsin"
+  der. (Tanım gelince buraya yazılacak.)
+
 ### TÜM KOMPLE KAPLAMALARDA DAHİL (Fatih Bey, 10 Ağustos 2026 — GÜNCEL)
 
 Komple PPF bir "film" değil, paket. Fiyat verilirken bunlar da sayılır:
 
 - Ön 2 cam filmi
-- Seramik kaplama
 - Araç içi deri bakımı
 - Kapı eşikleri
 - Jant seramiği
+
+⚠ **SERAMİK KAPLAMA PAKETE DAHİL DEĞİL** (Fatih Bey, 16 Ağustos 2026:
+"PPF kaplamada seramik hediye değil; JANT seramiği hediye"). 10 Ağustos
+listesinde vardı, çıkarıldı — bot "seramik kaplama da dahil" DEMEYECEK.
+Seramik kaplama ayrı fiyatlı hizmettir (Nasiol ZR53, 17.500₺).
 
 ⚠ Bu liste 8 Ağustos'taki listenin (far PPF, motor koruma, iç ekran koruma,
 polisaj) YERİNE geçer. Çelişirlerse bu liste esastır.

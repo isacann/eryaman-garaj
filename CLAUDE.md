@@ -327,6 +327,5 @@ Sabit ~5 sn taban, geri kalanın tamamı **çıktı uzunluğu**. Ölç: `npm run
 | Altın seti WhatsApp vakalarıyla genişletmek | 🟢 |
 
 **İşletmeden beklenen bilgiler:**
-- Ön 3 parça PPF'in parça dökümü (ön 4 tanımlandı: kaput + ön tampon + 2 ön çamurluk; ön 3 bilinmiyor, bot saymıyor)
 - Seramik kaplamada Nasiol ZR53 dışında kademe var mı
 - Instagram işletme doğrulaması için vergi levhası + unvan/telefon içeren ikinci belge

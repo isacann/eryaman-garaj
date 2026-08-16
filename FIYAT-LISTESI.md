@@ -61,9 +61,8 @@ aynalar" dedi). Doğrusu ve tek kaynak burası:
 
 - **Ön 4 parça = kaput + ön tampon + 2 ön çamurluk.** Başka bir şey YOK
   (far yok, ayna yok).
-- **Ön 3 parça:** parça dökümü işletmeden henüz alınmadı. Bot bu kapsamın
-  içeriğini SAYMAZ; sorulursa "parça detayını ekibimiz netleştirip iletsin"
-  der. (Tanım gelince buraya yazılacak.)
+- **Ön 3 parça = kaput + 2 ön çamurluk** (ön 4'ün tampansız hali — tanım
+  Fatih Bey'in ön 4 dökümünden türedi; 4 parça = 3 parça + ön tampon).
 
 ### TÜM KOMPLE KAPLAMALARDA DAHİL (Fatih Bey, 10 Ağustos 2026 — GÜNCEL)
 
