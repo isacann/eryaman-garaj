@@ -13,6 +13,7 @@
 // Çalıştır: npx tsx scripts/kilit-dogrula.ts
 
 import { eksikleriBul, hazirListeyiYerlestir, ilkAd } from '../src/lib/motor'
+import { isBasvurusuMu } from '../src/lib/is-basvurusu'
 import type { YapiliCikti } from '../src/lib/motor/types'
 
 type Vaka = {
@@ -427,6 +428,40 @@ for (const v of YERLESIM_VAKALARI) {
   }
 }
 
+// ── İş başvurusu tespiti (Fatih Bey, 15 Ağustos: "pas geçsin") ────────────
+// Bot turu hiç açılmaz; yanlış pozitif gerçek müşteriyi cevapsız bırakır,
+// o yüzden yanlış alarm vakaları en az yakalama vakaları kadar önemli.
+console.log('\nİş başvurusu — bot pas geçer mi')
+
+const BASVURU_VAKALARI: { metin: string; beklenen: boolean; neden: string }[] = [
+  { metin: 'iş ilanınız var mı', beklenen: true, neden: 'Doğrudan ilan sorusu.' },
+  { metin: 'Merhaba eleman alımınız var mı', beklenen: true, neden: 'Eleman alımı.' },
+  { metin: 'iş başvurusu yapmak istiyorum', beklenen: true, neden: 'Açık başvuru.' },
+  { metin: 'cv gönderebilir miyim', beklenen: true, neden: 'CV.' },
+  { metin: 'Usta arıyor musunuz', beklenen: true, neden: 'Usta arayışı.' },
+  { metin: 'stajyer alıyor musunuz', beklenen: true, neden: 'Staj.' },
+  { metin: 'yanınızda çalışmak istiyorum', beklenen: true, neden: 'İşe girme talebi.' },
+  { metin: 'iş arıyorum abi', beklenen: true, neden: 'İş arayışı.' },
+  // Yanlış alarm — gerçek müşteri mesajları PAS GEÇİLMEMELİ
+  { metin: 'komple ppf fiyatı nedir', beklenen: false, neden: 'Normal fiyat sorusu.' },
+  { metin: 'işlem ne kadar sürüyor', beklenen: false, neden: '"işlem" kelimesi iş değil.' },
+  { metin: 'bu iş ne kadara olur', beklenen: false, neden: 'Müşteri "iş" der ama başvuru değil.' },
+  { metin: 'cam filmi işi yapıyor musunuz', beklenen: false, neden: 'Hizmet sorusu.' },
+  { metin: 'aracımı yarın işten çıkınca getirsem olur mu', beklenen: false, neden: 'Müşterinin kendi işi.' },
+  { metin: 'sizinle çalışmak isteriz, filo aracımız var', beklenen: false, neden: 'Kurumsal müşteri; "yanınızda çalışmak" değil.' },
+]
+
+for (const v of BASVURU_VAKALARI) {
+  const sonuc = isBasvurusuMu(v.metin)
+  if (sonuc === v.beklenen) {
+    gecti += 1
+    console.log(`  ✓ ${v.beklenen ? '🔴 ' : ''}"${v.metin}" → ${sonuc ? 'pas' : 'cevaplanır'}`)
+  } else {
+    kalanlar.push(`isBasvurusuMu("${v.metin}")`)
+    console.log(`  ✗ "${v.metin}" → beklenen ${v.beklenen}, gelen ${sonuc} (${v.neden})`)
+  }
+}
+
 // ── Hitap adı: soyadı düşürülüyor mu (Fatih Bey, 15 Ağustos) ──────────────
 // Sahada "Merhabalar Asım ALTUN bey" ve "Merhabalar Mustafa Kemiksiz bey"
 // gitti. Kaynak WhatsApp pushName: müşteri profiline tam adını yazıyor.
@@ -460,7 +495,7 @@ for (const v of ISIM_VAKALARI) {
   }
 }
 
-const TOPLAM = VAKALAR.length + YERLESIM_VAKALARI.length + ISIM_VAKALARI.length
+const TOPLAM = VAKALAR.length + YERLESIM_VAKALARI.length + ISIM_VAKALARI.length + BASVURU_VAKALARI.length
 
 console.log(`\n${'─'.repeat(70)}`)
 console.log(`${gecti}/${TOPLAM} kilit doğru davrandı`)

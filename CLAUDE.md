@@ -71,6 +71,7 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Takip merdiveni | **3. saat** → **20. saat**, ikisi de ücretsiz. 14 Ağustos: 20 dakikalık basamak kaldırıldı (fazla ısrarcı), 25. saat şablon basamağı da kaldırıldı (Evolution'da Meta şablonu ve 24 saat penceresi yok) |
 | Şikayet / yapılmış iş | Müşteri yapılmış işle ilgili sorun bildirirse ("cam filmi kalmış", "kabarma olmuş") **satış dili yasak**: sahiplenme + özür + araç ne zaman gelir sorusu, devir_sebebi='sikayet', Telegram bildirimi. Kod kilidi: `sikayete-satis-cevabi` (15 Ağustos, Barkın vakası) |
 | Dönen müşteri | Son yazışmanın üzerinden 24 saat+ geçtiyse bot kısa selamla açar ("tekrar hoşgeldiniz 😊") ve geçmişi hatırlayarak konuşur. Kod kilidi: `donen-selamsiz` — prompt istisnayı iki vurguya rağmen uygulamadı, selam kodla kuruluyor (15 Ağustos) |
+| İş başvurusu / eleman sorusu | Bot **hiç cevap vermez, pas geçer** (15 Ağustos). Mesaj panele düşer, `activity_log`'a `is_basvurusu_pas` yazılır; ekip isterse elle cevaplar. Kod: `is-basvurusu.ts`, tespit `gelen-tur.ts`'te bot turundan önce — model şema gereği "susamadığı" için karar kodda |
 | Ekip elle cevap yazarsa | Bot susar. **Panelden de, telefondan WhatsApp uygulamasından da** — ikisi de yazışmayı devre alır (15 Ağustos) |
 | Motor patlarsa | Müşteriye **teknik hiçbir şey yazılmaz** (15 Ağustos). Devir bayrağı düşer, ekip 15 dk yazmazsa nötr cümle gider |
 | Bildirim | Telegram. Randevu / devir / sıcak müşteri anlık; gece gelenler sabaha ertelenir |
@@ -218,7 +219,7 @@ cd app && npm run bedava:dogrula
 
 | Sınav | Ne kanıtlar |
 |---|---|
-| `kilit:dogrula` (42 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** |
+| `kilit:dogrula` (56 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** |
 | `parcali:dogrula` (6 vaka) | Parçalı mesajda tek cevap + **tur kilidinin atomikliği** |
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |

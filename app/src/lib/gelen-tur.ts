@@ -24,6 +24,7 @@
 // zaten dönmüş durumda. Maliyeti sadece fonksiyonun açık kalma süresi.
 
 import { botCevapla } from '@/lib/bot'
+import { isBasvurusuMu } from '@/lib/is-basvurusu'
 import { hataKaydet } from '@/lib/hata-log'
 import { gelenMesajiKaydet } from '@/lib/mesajlar'
 import { supabaseServis } from '@/lib/supabase/sunucu'
@@ -130,6 +131,22 @@ export async function gelenleriIsle(
       // Webhook tekrarı: aynı mesaj ikinci kez geldi, bot yeniden cevap YAZMAZ.
       if (sonuc.tekrar) {
         console.log(`[${kaynak}] tekrar gelen mesaj, bot atlandı:`, mesaj.hariciId)
+        continue
+      }
+
+      // İş başvurusu / eleman sorusu: bot turu HİÇ AÇILMAZ (Fatih Bey,
+      // 15 Ağustos: "cevap vermesin, pas geçsin"). Mesaj panele düştü; ekip
+      // isterse elle cevaplar. Takip, mesai kuyruğu, bildirim — hiçbiri
+      // kurulmaz çünkü hepsi bot turuna bağlı. Kayıt: sessiz kalışın izi
+      // panelde kaybolmasın diye activity_log'a düşülür.
+      if (isBasvurusuMu(mesaj.metin)) {
+        console.log(`[${kaynak}] iş başvurusu mesajı, bot pas geçti`)
+        const db = supabaseServis()
+        await db.from('activity_log').insert({
+          aktor: 'bot',
+          tip: 'is_basvurusu_pas',
+          payload: { konusma_id: sonuc.konusmaId } as never,
+        })
         continue
       }
 
