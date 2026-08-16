@@ -116,8 +116,9 @@ const { data: takipler } = await db
   .eq('conversation_id', konusmaId)
 
 kontrol(
-  'takip merdiveni kuruldu (3saat + 20saat)',
-  (takipler?.length ?? 0) === 2,
+  // 16 Ağustos (Fatih Bey): tek hatırlatma — 23 saat.
+  'takip hatırlatması kuruldu (tek basamak: 23saat)',
+  (takipler?.length ?? 0) === 1,
   `bulunan: ${(takipler ?? []).map((t) => t.basamak).join(', ') || 'yok'}`,
 )
 
@@ -129,7 +130,7 @@ await db
   .from('followups')
   .update({ planlanan_at: gecmis })
   .eq('conversation_id', konusmaId)
-  .eq('basamak', '3saat')
+  .eq('basamak', '23saat')
 
 const cron2 = await cronCalistir()
 kontrol('cron takip işini çalıştırdı', !cron2.takipHata, JSON.stringify(cron2.takipHata ?? cron2.takip))
@@ -138,11 +139,11 @@ const { data: ucSaat } = await db
   .from('followups')
   .select('durum, gonderildi_at')
   .eq('conversation_id', konusmaId)
-  .eq('basamak', '3saat')
+  .eq('basamak', '23saat')
   .maybeSingle()
 
 kontrol(
-  '3. saat takibi gönderildi',
+  '23 saat hatırlatması gönderildi',
   ucSaat?.durum === 'gonderildi',
   `durum: ${ucSaat?.durum}`,
 )
@@ -233,7 +234,7 @@ await db
   .from('followups')
   .update({ durum: 'beklemede', planlanan_at: gecmis })
   .eq('conversation_id', konusmaId)
-  .eq('basamak', '20saat')
+  .eq('basamak', '23saat')
 
 // Müşteri yeni mesaj yazıyor.
 await mockMesaj('Peki taksit yapıyor musunuz?')
@@ -241,17 +242,17 @@ await mockMesaj('Peki taksit yapıyor musunuz?')
 const cron4 = await cronCalistir()
 void cron4
 
-const { data: yirmiSaat } = await db
+const { data: bekleyenTakip } = await db
   .from('followups')
   .select('durum, meta')
   .eq('conversation_id', konusmaId)
-  .eq('basamak', '20saat')
+  .eq('basamak', '23saat')
   .maybeSingle()
 
 kontrol(
-  '20. saat takibi müşteri yazdığı için gönderilmedi',
-  yirmiSaat?.durum !== 'gonderildi',
-  `durum: ${yirmiSaat?.durum}, sebep: ${yirmiSaat?.meta?.sebep}`,
+  'hatırlatma müşteri yazdığı için gönderilmedi',
+  bekleyenTakip?.durum !== 'gonderildi',
+  `durum: ${bekleyenTakip?.durum}, sebep: ${bekleyenTakip?.meta?.sebep}`,
 )
 
 // ---------------------------------------------------------------------------

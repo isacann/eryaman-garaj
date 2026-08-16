@@ -1,15 +1,14 @@
-// Takip merdiveni. KAPSAM karar 6.
+// Takip hatırlatması. KAPSAM karar 6.
 //
-//   3. saat  → ÜCRETSİZ ("listemize bakabildiniz mi")
-//   20. saat → ÜCRETSİZ
+//   TEK basamak: müşterinin son mesajından 23 saat sonra, isimli hatırlatma.
 //
-// ⚠ Süreler 14 Ağustos 2026'da iki kez değişti (Fatih Bey):
-//   · 20 dakikalık ilk basamak KALDIRILDI — sahada fazla ısrarcı kaçıyordu.
-//     (11 Ağustos'ta 3saat/20saat yerine 20dk/6saat denenmişti, geri dönüldü.)
-//   · 25. saat ŞABLON basamağı KALDIRILDI — WhatsApp artık Evolution üzerinden
-//     gidiyor; Meta'nın onaylı şablon mekanizması ve 24 saatlik müşteri
-//     hizmetleri penceresi burada YOK. Şablon, pencere kapandıktan sonra mesaj
-//     atabilmek içindi; pencere olmayınca basamağın da anlamı kalmadı.
+// ⚠ Süreler dört kez değişti (Fatih Bey) — tarihçe önemli, geri dönülmesin:
+//   · 11 Ağustos: 20dk/6saat denendi → fazla ısrarcı, geri alındı
+//   · 14 Ağustos: 3saat/20saat + şablon basamağı kaldırıldı (Evolution'da
+//     Meta şablonu ve 24 saat penceresi yok)
+//   · 16 Ağustos: "Hatırlatma mesajı SADECE BİR adet olsun... bir gün sonra"
+//     → tek basamak, 23 saat. Örnek metin birebir Fatih Bey'den:
+//     "Tekrardan merhabalar Kemal bey değerlendirmenizi yapabildiniz mi"
 //
 // ⚠ Instagram hâlâ Meta'da ve orada 24 saat penceresi GEÇERLİ. Instagram
 // bağlandığında pencere dışı takip gönderilemeyecek; o kanal için ayrı bir
@@ -29,18 +28,17 @@
 import 'server-only'
 
 import { gidenMesajGonder } from '@/lib/mesajlar'
+import { hitapCoz, ilkAd } from '@/lib/motor'
 import { PROAKTIF_BASLANGIC, proaktifSessizMi, sonrakiYerelSaat } from '@/lib/motor/saat'
 import { supabaseServis } from '@/lib/supabase/sunucu'
 import { hatirlatmaAni, randevuHatirlatmaMetni } from '@/lib/randevu'
 import { RANDEVU_HATIRLATMA, type Json, type TakipBasamagi } from '@/lib/db/types'
 
-/**
- * Müşterinin son mesajından itibaren kaçıncı DAKİKADA hangi basamak.
- * Birim dakika: ilk basamak saatten kısa (20 dk), saat cinsi yetmiyor.
- */
+// 16 Ağustos (Fatih Bey): "Hatırlatma mesajı da sadece BİR adet olsun...
+// bir gün sonra mesela." Merdiven tek basamağa indi: müşterinin son
+// mesajından 23 saat sonra tek hatırlatma. 3saat/20saat basamakları iptal.
 export const MERDIVEN: { basamak: TakipBasamagi; dakika: number; ucretli: boolean }[] = [
-  { basamak: '3saat', dakika: 3 * 60, ucretli: false },
-  { basamak: '20saat', dakika: 20 * 60, ucretli: false },
+  { basamak: '23saat', dakika: 23 * 60, ucretli: false },
 ]
 
 /**
@@ -50,30 +48,34 @@ export const MERDIVEN: { basamak: TakipBasamagi; dakika: number; ucretli: boolea
  * Ayarlardan değiştirilebilir (settings.meta.takip_metinleri).
  */
 export const VARSAYILAN_METINLER: Record<TakipBasamagi, string> = {
-  // Fatih Bey (11 Ağustos): "listemize vs. bakabildiniz mi şeklinde, bağlama uygun".
-  // Fiyat/liste gönderilmemiş bir yazışmada bu cümle anlamsız kaçacağı için
-  // metin gönderim anında bağlama göre seçiliyor (bkz. takipMetniSec).
-  '3saat': 'Fiyat listemize bakabildiniz mi? Aklınıza takılan bir şey olursa buradayım.',
-  '20saat':
-    'Müsait olduğunuzda dönerseniz aracınızın bilgilerini alabilirim. Müsaitseniz buyrun gelin, burada daha net yardımcı olalım size.',
+  // Fatih Bey'in birebir örneği (16 Ağustos): "Tekrardan merhabalar Kemal bey
+  // değerlendirmenizi yapabildiniz mi". İsim gönderim anında yerleştirilir
+  // (bkz. takipMetniSec) — [AD] işareti kişinin adı + hitabıyla değiştirilir.
+  '23saat': 'Tekrardan merhabalar[AD], değerlendirmenizi yapabildiniz mi?',
 }
 
 /**
- * İlk basamağın metni bağlama uyarlanır (Fatih Bey: "bağlama uygun olacak").
+ * Hatırlatma metnini kurar: isim + hitap yerleştirilir, bağlama uyarlanır.
  *
- * Yazışmada fiyat ya da liste görseli gittiyse "listemize bakabildiniz mi"
- * doğru cümle. Gitmediyse — müşteri henüz aracını yazmamışsa, konu adres/saat
- * ise — aynı cümle saçma kaçar; orada nötr hatırlatma gider.
+ * Fiyat/teklif gittiyse Fatih Bey'in örneği ("değerlendirmenizi yapabildiniz
+ * mi"); gitmediyse o cümle havada kalacağı için nötr hatırlatma.
  */
 export function takipMetniSec(
   basamak: TakipBasamagi,
   metinler: Record<TakipBasamagi, string>,
   fiyatGonderildiMi: boolean,
+  kisiAdi: string | null = null,
 ): string {
-  if (basamak === '3saat' && !fiyatGonderildiMi) {
-    return 'Aklınıza takılan bir şey olursa buradayım, yardımcı olayım.'
-  }
-  return metinler[basamak]
+  // Fiyat/teklif hiç gitmemişse "değerlendirmenizi yapabildiniz mi" havada
+  // kalır (değerlendirilecek şey yok); nötr hatırlatmaya düşülür.
+  const sablon = fiyatGonderildiMi
+    ? metinler[basamak]
+    : 'Tekrardan merhabalar[AD], aklınıza takılan bir şey olursa buradayım.'
+
+  const ad = ilkAd(kisiAdi)
+  const hitap = ad ? hitapCoz(ad) : null
+  const adParcasi = ad ? ` ${ad}${hitap ? ` ${hitap}` : ''}` : ''
+  return sablon.replaceAll('[AD]', adParcasi)
 }
 
 type TakipMetinleri = Partial<Record<TakipBasamagi, string>>
@@ -97,8 +99,7 @@ async function ayarlariOku(): Promise<{
   return {
     takipAktif: data?.takip_aktif ?? true,
     metinler: {
-      '3saat': ham['3saat']?.trim() || VARSAYILAN_METINLER['3saat'],
-      '20saat': ham['20saat']?.trim() || VARSAYILAN_METINLER['20saat'],
+      '23saat': ham['23saat']?.trim() || VARSAYILAN_METINLER['23saat'],
     },
   }
 }
@@ -330,7 +331,23 @@ export async function bekleyenTakipleriGonder(
       .or('metin.ilike.%₺%,medya_url.not.is.null')
       .limit(1)
 
-    const metin = takipMetniSec(basamak, metinler, (fiyatIzi?.length ?? 0) > 0)
+    // İsimli hatırlatma (Fatih Bey'in örneği "Kemal bey" içeriyor).
+    const { data: takipKisi } = await db
+      .from('contacts')
+      .select('ad')
+      .eq('id', (await db
+        .from('conversations')
+        .select('contact_id')
+        .eq('id', satir.conversation_id)
+        .single()).data?.contact_id ?? '')
+      .maybeSingle()
+
+    const metin = takipMetniSec(
+      basamak,
+      metinler,
+      (fiyatIzi?.length ?? 0) > 0,
+      takipKisi?.ad ?? null,
+    )
 
     try {
       await gidenMesajGonder(satir.conversation_id, metin, 'bot', {

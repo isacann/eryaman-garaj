@@ -75,15 +75,23 @@ const ERKEK_ISIMLER = new Set([
   'emre', 'burak', 'kerim', 'ferdi', 'murat', 'serkan', 'fatih', 'osman', 'yusuf', 'furkan',
   'cemal', 'samed', 'ersin', 'berkant', 'okan', 'volkan', 'tolga', 'kaan', 'onur', 'barış',
   'baris', 'selim', 'halil', 'ramazan', 'yasin', 'enes', 'eren', 'metin', 'süleyman', 'suleyman',
+  // 16 Ağustos eklemeleri — Fatih Bey'in takip örneği "Kemal bey"di ve kemal
+  // listede yoktu, hitap düşüyordu. Sahada geçen/yaygın adlar:
+  'kemal', 'salih', 'recep', 'gökhan', 'gokhan', 'hakan', 'mert', 'cem', 'oğuz', 'oguz',
+  'emin', 'adem', 'abdullah', 'ömer', 'omer', 'yakup', 'mahmut', 'samet', 'barkın', 'barkin',
+  'tayyar', 'asım', 'asim', 'harun', 'akif', 'nafiz', 'emrah', 'hikmet', 'erdem', 'sinan',
 ])
 
 const KADIN_ISIMLER = new Set([
   'ayşe', 'ayse', 'fatma', 'zeynep', 'elif', 'merve', 'tuğçe', 'tugce', 'selin', 'betül',
   'betul', 'emine', 'hatice', 'özlem', 'ozlem', 'esra', 'büşra', 'busra', 'seda', 'gamze',
   'melis', 'ceren', 'sude', 'ebru', 'pınar', 'pinar', 'aslı', 'asli', 'dilek', 'nazlı', 'nazli',
+  // 16 Ağustos eklemeleri (sahada: Sevim hanım):
+  'sevim', 'hülya', 'hulya', 'meryem', 'havva', 'yasemin', 'tuba', 'kübra', 'kubra',
+  'rabia', 'zehra', 'irem', 'buse', 'songül', 'songul', 'gülay', 'gulay', 'serpil',
 ])
 
-function hitapCoz(isim: string): string | null {
+export function hitapCoz(isim: string): string | null {
   const k = isim.toLocaleLowerCase('tr')
   if (UNISEX_ISIMLER.has(k)) return null
   if (ERKEK_ISIMLER.has(k)) return 'bey'

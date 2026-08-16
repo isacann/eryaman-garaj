@@ -19,7 +19,11 @@ export type RandevuDurumu = 'bekliyor' | 'onaylandi' | 'iptal'
 // Geçmiş: 3saat/20saat → (11 Ağustos) 20dk/6saat → (14 Ağustos) 3saat/20saat.
 // ⚠ Veritabanında eski basamak adıyla bekleyen satırlar kalabiliyor; gönderim
 // döngüsü tanımadığı basamağı göndermek yerine iptal ediyor (bkz. takip.ts).
-export type TakipBasamagi = '3saat' | '20saat'
+// 16 Ağustos (Fatih Bey): merdiven TEK basamağa indi — "hatırlatma mesajı da
+// sadece bir adet olsun... bir gün sonra". 3saat/20saat kaldırıldı; veritabanında
+// eski adla bekleyen satırları gönderim anındaki 'bilinmeyen-basamak' koruması
+// iptal ediyor.
+export type TakipBasamagi = '23saat'
 // Randevu hatırlatması aynı kuyrukta (followups) taşınır ama merdivenin PARÇASI
 // DEĞİLDİR: merdiven müşterinin son mesajından sayılır ve müşteri yazınca iptal
 // olur, hatırlatma ise randevu tarihinden sayılır ve müşteri yazsa da gitmelidir.
