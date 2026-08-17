@@ -365,6 +365,32 @@ const VAKALAR: Vaka[] = [
     sonMusteriMetni: 'Şu an kullanıyorum 7.000 km',
   },
 
+  // ── 17 Ağustos, sahada: "Ds 7 komple kaplama fiyatı" → bot markayı sordu ──
+  {
+    ad: 'fiyati-araca-bagladi (model kapsam alanını boş bıraksa bile)',
+    kaynak: 'Sahada: müşteri "Ds 7 komple kaplama fiyatı alabilirmiyim" yazdı, bot "marka ve modelinizi iletirseniz" dedi — müşteri "Yazdım markayi" diye sitem etti',
+    bekleniyor: 'fiyati-araca-bagladi',
+    mesajlar: ['Tabi yardımcı olalım. Aracınızın marka ve modelini iletirseniz daha net yardımcı olabiliriz.'],
+    yapiliEzme: { arac: null, kapsam: null, fiyat_verilebilir_mi: false },
+    ilkCevapMi: true,
+    sonMusteriMetni: 'Ds 7 komple kaplama fiyatı alabilirmiyim',
+    tumMusteriMetni: 'PPF Araç Kaplama işleminiz hakkında bilgi alabilirmiyim.\nDs 7 komple kaplama fiyatı alabilirmiyim',
+  },
+
+  // ── 17 Ağustos, sahada: "pahalı geldi + tşk" turuna kod gün sorusu ekledi ──
+  {
+    ad: 'fiyat-kapanissiz (itiraz/teşekkür turunda tetiklenmez)',
+    kaynak: 'Sahada: "Fiyatlar pahalı geldi" diyen müşteriye Global önerisi + KODUN eklediği "hangi gün getirirsiniz" gitti (Fatih: "bunu sormasına gerek yok")',
+    bekleniyor: null,
+    mesajlar: [
+      'Anlıyoruz, bütçenize uygun olması için Global PPF seçeneğimiz 75.000₺ ile daha ekonomik bir alternatif, 5 yıl garantili (190 mikron kalınlığında, taş izi + çizilme + UV koruması).',
+    ],
+    oncekiBotMetni:
+      'Komple PPF kaplamada seçeneklerimiz:\n• XPEL Xtreme PPF – 100.000₺ (190 mikron, 5 yıl garanti)\nHangi seride ilerlemek istersiniz?',
+    sonMusteriMetni: 'Fiyatlar pahalı geldi',
+    tumMusteriMetni: 'Ds 7 komple kaplama fiyatı alabilirmiyim\nFiyatlar pahalı geldi',
+  },
+
   // ── Fatih Bey, 16 Ağustos: "Toplam fiyat ne kadar" → "maalesef veremiyoruz" ──
   {
     ad: 'toplam-reddi',

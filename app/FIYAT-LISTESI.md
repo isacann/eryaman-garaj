@@ -60,10 +60,14 @@ Rakam eksik değil, iş yapılmıyor.
 Sahada bot "ön 4 parça"nın içeriğini UYDURDU ("kaput, ön tampon, farlar ve
 aynalar" dedi). Doğrusu ve tek kaynak burası:
 
-- **Ön 4 parça = kaput + ön tampon + 2 ön çamurluk.** Başka bir şey YOK
-  (far yok, ayna yok).
-- **Ön 3 parça = kaput + 2 ön çamurluk** (ön 4'ün tampansız hali — tanım
-  Fatih Bey'in ön 4 dökümünden türedi; 4 parça = 3 parça + ön tampon).
+- **Ön 4 parça = kaput + sağ-sol ön çamurluklar + ön tampon.** Farlar ve
+  kapı eşikleri de bu kapsama dahil edilir (parça sayılmaz, dahildir).
+  Ayna YOK.
+- **Ön 3 parça = kaput + sağ-sol ön çamurluklar** (ön tampon YOK). Farlar
+  ve kapı eşikleri yine dahil.
+- (17 Ağustos 2026, Fatih Bey'in kesin dökümü — 16 Ağustos'taki türetilmiş
+  tanımın yerini alır. Bot her iki kapsamda da farları ve kapı eşiklerini
+  "dahil" diye sayabilir; ayna hiçbir kapsamda söylenmez.)
 
 ### TÜM KOMPLE KAPLAMALARDA DAHİL (Fatih Bey, 10 Ağustos 2026 — GÜNCEL)
 

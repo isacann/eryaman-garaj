@@ -484,16 +484,13 @@ function hafifEksikleriKodlaDuzelt(
   // Kapanış sorusu: tek cümle, deterministik olarak eklenebilir. Model
   // çağırmak 40+ saniye; müşteriyi bunun için bekletmeye değmez.
   // ⚠ 16 Ağustos: bu ekleme daha önce sorulmuş soruya bakmıyordu ve "Hangi
-  // seride ilerlemek istersiniz?" aynı konuşmada üç kez gitti. Sıra: seri
-  // sorusu sorulmamışsa o; sorulmuşsa gün sorusu; ikisi de sorulmuşsa HİÇ —
-  // ısrar, sorusuz kalmaktan kötü.
-  if (adlar.has('fiyat-kapanissiz')) {
-    const onceki = baglam.oncekiBotMetni ?? ''
-    if (!SERI_SORUSU.test(onceki)) {
-      sonuc = [...sonuc, 'Hangi seride ilerlemek istersiniz?']
-    } else if (!GUN_SORUSU.test(onceki)) {
-      sonuc = [...sonuc, 'Aracınızı hangi gün getirmeyi düşünürsünüz?']
-    }
+  // seride ilerlemek istersiniz?" aynı konuşmada üç kez gitti. Seri sorusu
+  // sorulmuşsa HİÇBİR ŞEY eklenmez — 17 Ağustos'a kadar yedek olarak gün
+  // sorusu ekleniyordu ve "pahalı geldi" diyen müşteriye gitti (Fatih Bey:
+  // "bunu sormasına gerek yok"). Israr, sorusuz kalmaktan kötü; gün sorusunu
+  // model kendi bağlamında sorar, kod sormaz.
+  if (adlar.has('fiyat-kapanissiz') && !SERI_SORUSU.test(baglam.oncekiBotMetni ?? '')) {
+    sonuc = [...sonuc, 'Hangi seride ilerlemek istersiniz?']
   }
 
   // Aynı fiyat listesini ikinci kez yazmak: tekrar satırları atılır.
@@ -741,7 +738,17 @@ export function eksikleriBul(
   //
   // `agir: false` — bilgi yanlış değil, eksik olan bir sonraki adım. Süre
   // bütçesi doluysa model yeniden çağrılmaz, cümle kodla eklenir.
-  if (yeniRakamlar.length > 0 && !tumMetin.includes('?')) {
+  // ⚠ 17 Ağustos, sahada: müşteri "Fiyatlar pahalı geldi" + "tşk ederim"
+  // derken bot Global'i önerdi (doğru) ama kod kapanış olarak GÜN SORUSU
+  // ekledi — vedalaşan müşteriye "hangi gün getirirsiniz" (Fatih Bey: "bunu
+  // sormasına gerek yok"). İtiraz, teşekkür ve erteleme turlarında kapanış
+  // sorusu ZORLANMAZ; konuşmayı müşterinin tonu kapatıyor.
+  const kapanisZorlanmaz =
+    /pahal[ıi]|teşekkür|tesekkur|tşk|sağ ?ol|sagol|düşüneyim|düşüneceğim|dusunecegim|araştır|arastir|bakacağım|bakacagim/i.test(
+      baglam.sonMusteriMetni ?? '',
+    ) || ERTELEME_KALIBI.test(baglam.sonMusteriMetni ?? '')
+
+  if (yeniRakamlar.length > 0 && !tumMetin.includes('?') && !kapanisZorlanmaz) {
     eksikler.push({
       ad: 'fiyat-kapanissiz',
       talimat:
@@ -877,9 +884,15 @@ export function eksikleriBul(
   //        Fatih Bey'in "sorgu makinesi" şikâyetinin ta kendisi.
   //        Kural yalnızca İLK CEVAP bloğunda yazılıydı; ikinci turdan itibaren
   //        modeli bağlayan hiçbir şey yoktu.
+  //        ⚠ 17 Ağustos, sahada: müşteri "Ds 7 komple kaplama fiyatı" yazdı,
+  //        model ne `arac` ne `kapsam` alanını doldurdu ve kilit sustu — bot
+  //        "marka ve modelinizi iletirseniz" diye sordu, müşteri "Yazdım
+  //        markayi" diye sitem etti. Modelin beyanına tek başına güvenmek
+  //        yine boşluk bıraktı (16 Ağustos `fiyat-listesi-eksik` dersinin
+  //        aynısı): müşterinin KENDİ SÖZÜNDEN hesaplanan kapsam da sayılır.
   if (
     !yapili.arac &&
-    yapili.kapsam &&
+    (yapili.kapsam || kapsamNetlesti) &&
     aracSorusu.test(tumMetin) &&
     fiyatRakamlariniBul(tumMetin).length === 0
   ) {
