@@ -80,6 +80,8 @@ const ERKEK_ISIMLER = new Set([
   'kemal', 'salih', 'recep', 'gökhan', 'gokhan', 'hakan', 'mert', 'cem', 'oğuz', 'oguz',
   'emin', 'adem', 'abdullah', 'ömer', 'omer', 'yakup', 'mahmut', 'samet', 'barkın', 'barkin',
   'tayyar', 'asım', 'asim', 'harun', 'akif', 'nafiz', 'emrah', 'hikmet', 'erdem', 'sinan',
+  // 17 Ağustos: randevu hatırlatması "Merhabalar İsa" diye unvansız gitti.
+  'isa', 'i̇sa', 'musa', 'ismail', 'i̇smail', 'yunus', 'davut', 'bilal', 'cihan', 'uğur', 'ugur',
 ])
 
 const KADIN_ISIMLER = new Set([

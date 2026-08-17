@@ -8,6 +8,8 @@
 // Intl ile Europe/Istanbul üzerinden üretiliyor; sunucu UTC'de çalıştığı için
 // yerel saate güvenmek gece yarısı civarı bir gün kaydırıyordu.
 
+import { hitapCoz, ilkAd } from '@/lib/motor'
+
 /**
  * Tercih edilen hatırlatma mesafesi: randevudan 24 saat önce.
  * "Yarın aracınızı getirecektiniz" cümlesini doğru kılan aralık
@@ -99,11 +101,15 @@ export function randevuHatirlatmaMetni(
     weekday: 'long',
   }).format(randevu)
 
-  const hitap = ad?.trim() ? `Merhabalar ${ad.trim()}` : 'Merhabalar'
+  // ⚠ 17 Ağustos, sahada: hatırlatma "Merhabalar İsa Nurdoğdu" diye TAM ADLA
+  // gitti. "Sadece ilk ad + bey/hanım" kuralı motorun girişinde uygulanıyor ama
+  // bu metin motordan geçmiyor — kodla kuruluyor. Aynı sadeleştirme burada da.
+  const ilk = ilkAd(ad)
+  const unvan = ilk ? hitapCoz(ilk) : null
+  const hitap = ilk ? `Merhabalar ${ilk}${unvan ? ` ${unvan}` : ''}` : 'Merhabalar'
   const neZaman = ayniGunMu(randevu, gonderimAni) ? `bugün (${gun})` : `yarın (${gun})`
 
-  return (
-    `${hitap}, ${neZaman} saat ${saat} için aracınızı getirecektiniz, ` +
-    'hatırlatmak istedik. Planınızda değişiklik olursa yazmanız yeterli.'
-  )
+  // "Planınızda değişiklik olursa yazmanız yeterli" 17 Ağustos'ta kaldırıldı
+  // (İsa: "demesine gerek yok") — hatırlatma tek cümle, kuyruk cümlesiz.
+  return `${hitap}, ${neZaman} saat ${saat} için aracınızı getirecektiniz, hatırlatmak istedik.`
 }
