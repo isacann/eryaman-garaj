@@ -174,9 +174,19 @@ function yanlisKalemFiyatiBul(
   return `"${urun}" + "${kapsam}" için doğru fiyat ${kalem.fiyat}, metinde geçen: ${[...new Set(rakamlar)].join(', ')}`
 }
 
+/**
+ * KODUN eklediği toplam satırı (motor/index.ts `toplamiEkle`). Müşteri toplam
+ * sorunca izinli kalem fiyatları deterministik toplanıp bu kalıpla ekleniyor;
+ * toplamın kendisi listede olmadığı için denetim onu "liste dışı" sanmamalı
+ * (16 Ağustos). Kalıp birebir kod üretimi — model bu cümleyi kendisi kurarsa
+ * da aritmetiği kod yapmış kadar güvenli değil ama rakam yine kalemlerin
+ * toplamı olmak zorunda; kalıba uymayan her toplam bayraklanmaya devam eder.
+ */
+const KOD_TOPLAM_SATIRI = /^Seçtiğiniz kalemlerin toplamı [\d.,]+₺ oluyor\.$/m
+
 export function bayraklariBul(metin: string, baglam: DenetimBaglami): Bayrak[] {
   const bayraklar: Bayrak[] = []
-  const rakamlar = fiyatRakamlariniBul(metin)
+  const rakamlar = fiyatRakamlariniBul(metin.replace(KOD_TOPLAM_SATIRI, ''))
 
   // (e) fiyat görseli, metin denetiminin kör noktası. Görselde bütün rakamlar
   // var; ilk cevapta ya da kapsam netleşmeden gönderilmesi fiyatla açma

@@ -193,6 +193,148 @@ function listeyiTekMesajaTopla(mesajlar: string[]): string[] {
 }
 
 /**
+ * Botun kapanış sorularının kalıpları — tekrar kontrolü İÇİN, üretim için değil.
+ *
+ * ⚠ 16 Ağustos, sahada (Fatih Bey: "sürekli randevu istiyo"): bot aynı
+ * konuşmada "Hangi seride ilerlemek istersiniz?" sorusunu ÜÇ, gün sorusunu ÜÇ
+ * kez sordu. İki kaçak birleşti: `cumleTekrariMi` 45 karakterden kısa cümleye
+ * hiç bakmıyor (soru 34 karakter) ve `fiyat-kapanissiz` hafif düzeltmesi soruyu
+ * KODLA ekliyor — kodun eklediği metin denetimden sonra girdiği için hiçbir
+ * süzgece uğramıyordu.
+ */
+const SERI_SORUSU = /hangi\s+seri[^?\n]{0,60}\?/i
+const GUN_SORUSU = /(ne zaman|hangi g[üu]n|hangi tarih)[^.?\n]{0,60}getir|getirmeyi d[üu]ş[üu]n[üu]r/i
+
+/** Müşteri "tarih belli değil / aracı almadım / sonra yazarım" dediyse. */
+const ERTELEME_KALIBI =
+  /belli değil|belli olmadı|teslim alma|daha almadım|henüz almadım|sonra (tekrar )?(yazar|iletişime|döner)|netleş|karar ver(ince|diğimde|eyim)/i
+
+/**
+ * Önceki turlarda ZATEN sorulmuş kapanış sorularını cevaptan çıkarır.
+ * Ayrıca müşteri randevuyu ertelediyse gün sorusu ilk kezse bile çıkar:
+ * "tarih belli değil" diyen müşteriye "hangi gün getirirsiniz" ısrardır.
+ */
+export function tekrarSorulariAt(
+  mesajlar: string[],
+  oncekiBotMetni: string,
+  sonMusteriMetni: string,
+): string[] {
+  const seriSoruldu = SERI_SORUSU.test(oncekiBotMetni)
+  const gunSoruldu = GUN_SORUSU.test(oncekiBotMetni)
+  const musteriErteledi = ERTELEME_KALIBI.test(sonMusteriMetni)
+  if (!seriSoruldu && !gunSoruldu && !musteriErteledi) return mesajlar
+
+  const temiz = mesajlar
+    .map((mesaj) =>
+      mesaj
+        .split('\n')
+        .map((satir) =>
+          satir
+            .split(/(?<=[.!?])\s+/)
+            .filter((cumle) => {
+              if (seriSoruldu && SERI_SORUSU.test(cumle)) return false
+              if ((gunSoruldu || musteriErteledi) && GUN_SORUSU.test(cumle)) return false
+              return true
+            })
+            .join(' '),
+        )
+        .join('\n')
+        .trim(),
+    )
+    .filter((m) => m !== '')
+
+  // Her şey silindiyse boş cevap göndermektense orijinali koru.
+  return temiz.length > 0 ? temiz : mesajlar
+}
+
+/** Müşteri seçtiği kalemlerin TOPLAMINI mı soruyor. */
+export function toplamSorusuMu(metin: string): boolean {
+  const m = metin.toLocaleLowerCase('tr')
+  return (
+    /toplam|üçü birden|ikisi birden|hepsi (birlikte|beraber)|topu ne/.test(m) &&
+    /ne kadar|kaç|fiyat|tutar|eder|olur|oluyor/.test(m)
+  )
+}
+
+/**
+ * Müşteri toplam sorduysa toplamı KOD hesaplar (16 Ağustos, sahada: bot
+ * "maalesef toplu rakam veremiyoruz" dedi — 17.500 + 10.000 + 12.000 = 39.500₺
+ * söylenebilir üç rakamdı). Model toplamaya devam etmiyor (aritmetik hatası
+ * riski, `uydurma-rakam` dersi); cevaptaki seçili kalem fiyatları burada
+ * toplanır. Bu adım DENETİMDEN SONRA koşar, eklenen toplam rakamı "uydurma"
+ * sayılmaz.
+ *
+ * Korumalar: 2-4 tekil rakam (5+ = seri listesi dökümü, toplamı anlamsız),
+ * hepsi ≥ 1.000 (taksit sayısı gibi küçük sayılar zaten yakalanmıyor ama
+ * emniyet), cevapta halihazırda toplam rakamı yoksa.
+ */
+export function toplamiEkle(mesajlar: string[], sonMusteriMetni: string): string[] {
+  if (!toplamSorusuMu(sonMusteriMetni)) return mesajlar
+
+  const tumMetin = mesajlar.join('\n')
+  if (/toplam[^.\n]{0,40}\d/i.test(tumMetin)) return mesajlar
+
+  const rakamlar = [...new Set(fiyatRakamlariniBul(tumMetin))]
+  if (rakamlar.length < 2 || rakamlar.length > 4) return mesajlar
+
+  const sayilar = rakamlar.map((r) => Number(r))
+  if (sayilar.some((s) => !Number.isFinite(s) || s < 1000)) return mesajlar
+
+  const toplam = sayilar.reduce((a, b) => a + b, 0)
+  return [...mesajlar, `Seçtiğiniz kalemlerin toplamı ${toplam.toLocaleString('tr-TR')}₺ oluyor.`]
+}
+
+/**
+ * ":" ile bitip vaadini tutmayan tanıtım cümlesini atar (16 Ağustos, sahada:
+ * "Seçtiğiniz kalemlerin fiyatları ayrı ayrı şöyle:" gitti, ardından liste
+ * GELMEDİ — sonraki balon taksit cümlesiydi). Yalnızca liste/fiyat vaat eden
+ * tanıtımlara dokunur; "Adresimiz:" gibi meşru iki-nokta kullanımı kapsam dışı.
+ */
+export function oksuzTanitimiAt(mesajlar: string[]): string[] {
+  const vaat = /(seçenek|listemiz|fiyat|şöyle|aşağıda|👇)/i
+  const cikti: string[] = []
+
+  for (let i = 0; i < mesajlar.length; i += 1) {
+    const mesaj = mesajlar[i]
+    const tanitimlaBitiyor = /:\s*$/.test(mesaj.trim()) && vaat.test(mesaj)
+
+    if (tanitimlaBitiyor) {
+      const sonraki = mesajlar[i + 1] ?? ''
+      const listeGeliyor =
+        sonraki.split('\n').some((s) => LISTE_SATIRI.test(s) || URUN_BASLIGI.test(s.trim())) ||
+        fiyatRakamlariniBul(sonraki).length > 0
+
+      if (!listeGeliyor) {
+        // Son cümle tanıtım; mesajın önünde başka cümle varsa onlar kalır.
+        const cumleler = mesaj.trim().split(/(?<=[.!?])\s+/)
+        cumleler.pop()
+        const kalan = cumleler.join(' ').trim()
+        if (kalan !== '') cikti.push(kalan)
+        continue
+      }
+    }
+
+    cikti.push(mesaj)
+  }
+
+  return cikti.length > 0 ? cikti : mesajlar
+}
+
+/**
+ * Her cevabın çıkışta geçtiği son rötuş: öksüz tanıtım → soru tekrarı →
+ * toplam. `listeyiTekMesajaTopla` gibi her dönüş yolunda çağrılır; kodun
+ * eklediği metinler de dahil HER ŞEY bu süzgeçten geçer.
+ */
+export function sonRotus(
+  mesajlar: string[],
+  baglam: { oncekiBotMetni?: string; sonMusteriMetni?: string },
+): string[] {
+  let sonuc = oksuzTanitimiAt(mesajlar)
+  sonuc = tekrarSorulariAt(sonuc, baglam.oncekiBotMetni ?? '', baglam.sonMusteriMetni ?? '')
+  return toplamiEkle(sonuc, baglam.sonMusteriMetni ?? '')
+}
+
+/**
  * Son çare: düzeltme turu da listeyi tekrarladıysa, zaten verilmiş fiyat
  * satırlarını kodla çıkar.
  *
@@ -339,8 +481,17 @@ function hafifEksikleriKodlaDuzelt(
 
   // Kapanış sorusu: tek cümle, deterministik olarak eklenebilir. Model
   // çağırmak 40+ saniye; müşteriyi bunun için bekletmeye değmez.
+  // ⚠ 16 Ağustos: bu ekleme daha önce sorulmuş soruya bakmıyordu ve "Hangi
+  // seride ilerlemek istersiniz?" aynı konuşmada üç kez gitti. Sıra: seri
+  // sorusu sorulmamışsa o; sorulmuşsa gün sorusu; ikisi de sorulmuşsa HİÇ —
+  // ısrar, sorusuz kalmaktan kötü.
   if (adlar.has('fiyat-kapanissiz')) {
-    sonuc = [...sonuc, 'Hangi seride ilerlemek istersiniz?']
+    const onceki = baglam.oncekiBotMetni ?? ''
+    if (!SERI_SORUSU.test(onceki)) {
+      sonuc = [...sonuc, 'Hangi seride ilerlemek istersiniz?']
+    } else if (!GUN_SORUSU.test(onceki)) {
+      sonuc = [...sonuc, 'Aracınızı hangi gün getirmeyi düşünürsünüz?']
+    }
   }
 
   // Aynı fiyat listesini ikinci kez yazmak: tekrar satırları atılır.
@@ -594,7 +745,31 @@ export function eksikleriBul(
       talimat:
         'Fiyatları verdin ama konuşmayı sürdürecek bir soru sormadın; yazışma ölü ' +
         'noktada kalıyor. Cevabın sonuna tek bir kapanış sorusu ekle: hangi seride ' +
-        'ilerlemek istediğini ya da aracı ne zaman getirmeyi düşündüğünü sor.',
+        'ilerlemek istediğini ya da aracı ne zaman getirmeyi düşündüğünü sor. ' +
+        'Daha önce sorduğun bir soruyu aynen tekrarlama.',
+    })
+  }
+
+  // 1d) TOPLAM SORUSUNA RET CEVABI (Fatih Bey, 16 Ağustos: müşteri "toplam
+  //     fiyat ne kadar oluyor" dedi, bot "Maalesef kalemleri toplu bir rakam
+  //     olarak veremiyoruz" yazdı). Toplam sorusu meşrudur; cevabı seçilen
+  //     kalemlerin "• kalem: fiyat" dökümüdür — toplam satırını sonradan KOD
+  //     ekler (`toplamiEkle`), model aritmetik yapmaz. Ret cümlesi hem satışı
+  //     soğutur hem "veremiyoruz" diye yanlış bir izlenim bırakır.
+  const toplamSoruldu = toplamSorusuMu(baglam.sonMusteriMetni ?? '')
+  const toplamReddi =
+    /(topl[ua][^.\n]{0,60}(verem|söyleyem|iletem))|((verem|söyleyem|iletem)[^.\n]{0,60}topl[ua])/i.test(
+      tumMetin,
+    )
+  if (toplamSoruldu && (toplamReddi || yeniRakamlar.length === 0)) {
+    eksikler.push({
+      ad: 'toplam-reddi',
+      agir: true,
+      talimat:
+        'Müşteri seçtiği kalemlerin TOPLAMINI soruyor. "Toplu rakam veremiyoruz" ' +
+        'gibi bir ret cümlesi KURMA. Müşterinin bu konuşmada seçtiği kalemleri ' +
+        '"• kalem: fiyat" biçiminde ayrı ayrı yaz — sadece seçtiklerini, ' +
+        'alternatif serileri değil. Kendin TOPLAMA; toplam satırı otomatik eklenir.',
     })
   }
 
@@ -887,7 +1062,10 @@ export function eksikleriBul(
     return fiyatliMi && /\([^)]{10,}\)/.test(satir)
   }).length
 
-  if (yeniRakamlar.length >= 3 && ozellikSatiriSayisi < 2) {
+  // ⚠ Toplam sorusu muaf (16 Ağustos): müşteri seçtiği kalemlerin toplamını
+  // sorduğunda kısa "• kalem: fiyat" dökümü İSTENEN biçim — özellikler zaten
+  // önceki turlarda anlatıldı, burada tekrarı gürültü olur.
+  if (yeniRakamlar.length >= 3 && ozellikSatiriSayisi < 2 && !toplamSoruldu) {
     eksikler.push({
       ad: 'ozelliksiz-liste',
       talimat:
@@ -965,9 +1143,12 @@ export function eksikleriBul(
   //    yeni soru sormadı; listeyi tekrar okumak konuşmayı ilerletmiyor.
   //    Müşteri açıkça "tekrar gönder" derse bu kural devreye girmez.
   const oncekiRakamlar = new Set(fiyatRakamlariniBul(baglam.oncekiBotMetni ?? ''))
-  const tekrarIstendi = /tekrar|bir daha|yeniden|tekrardan|gönderir misin|atar mısın/i.test(
-    baglam.sonMusteriMetni ?? '',
-  )
+  // Toplam sorusu da muaf: seçilen kalemleri tekrar yazmak toplamın ön şartı
+  // (`toplam-reddi` kilidi tam bunu istiyor; ikisi çelişmemeli).
+  const tekrarIstendi =
+    /tekrar|bir daha|yeniden|tekrardan|gönderir misin|atar mısın/i.test(
+      baglam.sonMusteriMetni ?? '',
+    ) || toplamSorusuMu(baglam.sonMusteriMetni ?? '')
 
   if (
     !tekrarIstendi &&
@@ -1097,7 +1278,11 @@ export async function yanitUret(
   const eksikler = eksikleriBul(yanit.yapili, denetimBaglami)
   // Eksik yoksa bile liste toplama uygulanır: bu bir kusur düzeltmesi değil,
   // her cevabın geçtiği biçimlendirme adımı.
-  if (eksikler.length === 0) return mesajlariDegistir(yanit, listeyiTekMesajaTopla(yanit.yapili.mesajlar))
+  if (eksikler.length === 0)
+    return mesajlariDegistir(
+      yanit,
+      sonRotus(listeyiTekMesajaTopla(yanit.yapili.mesajlar), denetimBaglami),
+    )
 
   // Düzeltme turu sessiz kalmasın: hangi kuralın kaç kez kurtarma gerektirdiğini
   // bilmezsek ne maliyeti ne de kalan kırılganlığı görebiliriz.
@@ -1129,7 +1314,12 @@ export async function yanitUret(
     }
     return mesajlariDegistir(
       yanit,
-      listeyiTekMesajaTopla(hafifEksikleriKodlaDuzelt(yanit.yapili.mesajlar, eksikler, denetimBaglami)),
+      sonRotus(
+        listeyiTekMesajaTopla(
+          hafifEksikleriKodlaDuzelt(yanit.yapili.mesajlar, eksikler, denetimBaglami),
+        ),
+        denetimBaglami,
+      ),
     )
   }
 
@@ -1202,7 +1392,7 @@ export async function yanitUret(
     mesajlar = mesajlar.map((m) => m.replace(hitapKalibi, '$1'))
   }
 
-  mesajlar = listeyiTekMesajaTopla(mesajlar)
+  mesajlar = sonRotus(listeyiTekMesajaTopla(mesajlar), denetimBaglami)
 
   return {
     ...secilen,

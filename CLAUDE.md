@@ -80,6 +80,9 @@ Bunlar işletmenin kararlarıdır; değiştirmeden önce sorulmalı. Tam liste `
 | Hitap | Erkek → bey, kadın → hanım, **unisex ya da emin değilse hitap yok**, sadece ad |
 | Hitapta ad | **Sadece ilk ad** (15 Ağustos). WhatsApp `pushName` tam ad getiriyor; "Asım ALTUN bey" ve "Yusuf❤️Dilek" gitti. Kod kilidi `ilkAd()` motorun girişinde: **boşlukla değil, ilk HARF dizisiyle** ayırır — emoji/`~`/rakam ada bitişik gelebiliyor |
 | Renkli kaplama (renk değişimi) | ⛔ **Bot fiyat VERMEZ, devreder** (15 Ağustos). Standart liste yok; fiyat yüzey alanına, filme ve renge göre değişiyor. Bot hizmeti anlatır, aracı/isteneni öğrenir, ekip fiyatlar. **Ayrım:** "mat PPF" koruma kalemidir, fiyatı verilir; "kırmızı mat kaplama" renk dönüşümüdür, verilmez |
+| Toplam fiyat sorusu | Müşteri seçtiği kalemlerin toplamını sorarsa **"toplu rakam veremeyiz" DENMEZ** (16 Ağustos, sahada dendi). Model kalemleri `• kalem: fiyat` diye ayrı ayrı yazar, **toplamı KOD hesaplar ve ekler** (`toplamiEkle`; model aritmetik yapmaz — `uydurma-rakam` dersi). Kod kilidi `toplam-reddi` (ağır); kodun toplam satırı denetimden muaf (`KOD_TOPLAM_SATIRI`) |
+| Randevu/gün sorusu sıklığı | **Konuşma başına EN FAZLA BİR KEZ** (16 Ağustos, Fatih Bey: "sürekli randevu istiyo" — bot aynı konuşmada 3 kez sordu). Fiyat verilir verilmez sorulmaz; müşteri "tarih belli değil / aracı almadım" dediyse konu kapanır, ısrar edilmez. Kod: `tekrarSorulariAt` (`sonRotus` içinde) sorulmuş seri/gün sorusunu cevaptan siler; kodun eklediği kapanış sorusu da (`fiyat-kapanissiz`) sorulmamış olanı seçer, ikisi de sorulduysa hiç eklemez |
+| Fazla konuşma | Bir turda **en fazla 2 balon** (liste gereken turda 3) — 16 Ağustos, Fatih Bey: "fazla konuşuyo bir nevi"; sahada tek turda 4 balon gitti. Prompt kuralı + `oksuzTanitimiAt` (":" deyip vaadini tutmayan tanıtım cümlesini siler) |
 
 ⚠ **Bir kural iki yerde yazılıyorsa ikisinin çelişmediğini kontrol et.** Bu ders üç kez tekrarlandı: karar `FIYAT-LISTESI.md` ya da `KAPSAM.md`'de güncellendi, `sistem-prompt.ts`'te eski hâli kaldı ve bot iki kaynağın arasında kaldı. **Bir karar değiştirdiğinde `sistem-prompt.ts`'i grep'le.**
 
@@ -142,7 +145,9 @@ Uygulamanın hiçbir yeri doğrudan WhatsApp'a ya da Instagram'a bağlanmaz; her
 ⚠ Müşteri adı promptun **sonunda** olmalı; başta olduğu sürece önbellek her müşteride kırılıyordu (hit oranı 0).
 
 ### Zorunlu-parça kilidi
-Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bir düzeltme turuyla** yeniden çağrılır. Kurallardan bazıları: `selamlama-isim`, `fiyat-listesi-eksik`, `liste-tekrari`, `kapsamsiz-ilk-fiyat`, `kapsama-dahil-kalem-fiyati`, `arac-tekrar-soruldu`, `cumle-tekrari`, `kuru-acilis`, `ozelliksiz-liste`, `kompleye-kismi-teklifi`, `fiyati-araca-bagladi`, `renk-degisiminde-fiyat`, `sikayete-satis-cevabi`, `donen-selamsiz`, `fiyat-kapanissiz`. (`randevuda-telefon-yok` **15 Ağustos'ta kaldırıldı** — Fatih Bey numara istenmesinden vazgeçti.)
+Cevap müşteriye gitmeden `eksikleriBul()` kontrol eder, eksikse model **tek bir düzeltme turuyla** yeniden çağrılır. Kurallardan bazıları: `selamlama-isim`, `fiyat-listesi-eksik`, `liste-tekrari`, `kapsamsiz-ilk-fiyat`, `kapsama-dahil-kalem-fiyati`, `arac-tekrar-soruldu`, `cumle-tekrari`, `kuru-acilis`, `ozelliksiz-liste`, `kompleye-kismi-teklifi`, `fiyati-araca-bagladi`, `renk-degisiminde-fiyat`, `sikayete-satis-cevabi`, `donen-selamsiz`, `fiyat-kapanissiz`, `toplam-reddi`. (`randevuda-telefon-yok` **15 Ağustos'ta kaldırıldı** — Fatih Bey numara istenmesinden vazgeçti.)
+
+**Son rötuş (`sonRotus`, 16 Ağustos):** her cevap — kodun eklediği metinler dahil — çıkışta üç süzgeçten geçer: `oksuzTanitimiAt` (vaadi tutulmayan "şöyle:" cümlesi), `tekrarSorulariAt` (sorulmuş seri/gün sorusunun tekrarı + erteleyene gün sorusu), `toplamiEkle` (toplam sorusuna kod hesabı). Sebep: `cumleTekrariMi` 45 karakter altına bakmıyor ve kodun eklediği kapanış sorusu denetimden sonra girdiği için hiçbir süzgece uğramıyordu — "Hangi seride ilerlemek istersiniz?" aynı konuşmada 3 kez gitti.
 
 **Düzeltme turuna süre bütçesi var** (`MOTOR_DUZELTME_BUTCE_MS`, varsayılan 8 sn): ilk çağrı bütçeyi aştıysa yalnızca `agir: true` işaretli eksikler (yanlış/eksik fiyat) ikinci tura çıkar. Biçimsel kusur için müşteri bir dakika daha bekletilmez. Hafif eksikler modelsiz düzeltilir (`hafifEksikleriKodlaDuzelt`).
 
@@ -220,7 +225,7 @@ cd app && npm run bedava:dogrula
 
 | Sınav | Ne kanıtlar |
 |---|---|
-| `kilit:dogrula` (61 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** |
+| `kilit:dogrula` (74 vaka) | Kural **kodda** doğru yazılmış mı — yakalama + yanlış alarm yokluğu + **hitap adı** + **liste yerleşimi** + **soru tekrarı** + **kod toplamı** |
 | `parcali:dogrula` (6 vaka) | Parçalı mesajda tek cevap + **tur kilidinin atomikliği** |
 | `uctan-uca:dogrula` (6 vaka) | Model hata yaparsa kusur **müşteriye gitti mi** |
 | `prompt:netlik` (6 vaka) | Promptu izleyen cevap denetimden temiz geçiyor mu — **prompt çelişkisiz mi** |

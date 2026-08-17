@@ -12,7 +12,15 @@
 //
 // Çalıştır: npx tsx scripts/kilit-dogrula.ts
 
-import { eksikleriBul, hazirListeyiYerlestir, ilkAd, turIciTekrariAt } from '../src/lib/motor'
+import {
+  eksikleriBul,
+  hazirListeyiYerlestir,
+  ilkAd,
+  oksuzTanitimiAt,
+  tekrarSorulariAt,
+  toplamiEkle,
+  turIciTekrariAt,
+} from '../src/lib/motor'
 import { isBasvurusuMu } from '../src/lib/is-basvurusu'
 import type { YapiliCikti } from '../src/lib/motor/types'
 
@@ -356,6 +364,31 @@ const VAKALAR: Vaka[] = [
       'Komple kaplamada seçeneklerimiz:\n• XPEL Xtreme: 100.000₺\n• XPEL EXO Armor: 125.000₺\n• Global PPF: 75.000₺',
     sonMusteriMetni: 'Şu an kullanıyorum 7.000 km',
   },
+
+  // ── Fatih Bey, 16 Ağustos: "Toplam fiyat ne kadar" → "maalesef veremiyoruz" ──
+  {
+    ad: 'toplam-reddi',
+    kaynak: 'Sahada: müşteri üç kalemin toplamını sordu, bot "toplu rakam veremiyoruz" dedi',
+    bekleniyor: 'toplam-reddi',
+    mesajlar: [
+      'Maalesef kalemleri toplu bir rakam olarak veremiyoruz, her biri ayrı fiyatlandırılıyor.',
+    ],
+    sonMusteriMetni: 'Toplam fiyat ne kadar oluyor',
+    tumMusteriMetni:
+      'Seramik kaplama, global adı ceramic cam filmi ve xpel xr blue ön cam toplam ne kadar olur\nToplam fiyat ne kadar oluyor',
+  },
+  {
+    ad: 'toplam-reddi (yanlış alarm yok — kalemler dökülünce liste-tekrari de susmalı)',
+    kaynak: 'Toplam sorusunda kalemleri tekrar yazmak meşru; liste-tekrari muafiyeti',
+    bekleniyor: null,
+    mesajlar: [
+      '• Seramik kaplama (Nasiol ZR53): 17.500₺\n• Global QDP Ceramic cam filmi: 10.000₺\n• XPEL XR Blue ön cam: 12.000₺',
+      'Aracınızı hangi gün getirmeyi düşünürsünüz?',
+    ],
+    oncekiBotMetni:
+      'Seramik kaplamada Nasiol ZR53 ürününü kullanıyoruz, fiyatı 17.500₺.\nGlobal QDP Ceramic 10.000₺.\nXPEL XR Blue 12.000₺.',
+    sonMusteriMetni: 'Toplam fiyat ne kadar oluyor',
+  },
 ]
 
 function kosVaka(v: Vaka): { gecti: boolean; ayrinti: string } {
@@ -562,7 +595,181 @@ for (const v of ISIM_VAKALARI) {
   }
 }
 
-const TOPLAM = VAKALAR.length + YERLESIM_VAKALARI.length + ISIM_VAKALARI.length + BASVURU_VAKALARI.length + TEKRAR_VAKALARI.length
+// ── Soru tekrarı (Fatih Bey, 16 Ağustos: "sürekli randevu istiyo") ─────────
+// Bot aynı konuşmada seri sorusunu ÜÇ, gün sorusunu ÜÇ kez sordu. Kısa sorular
+// cumle-tekrari süzgecinin 45 karakter eşiğinin altında kalıyordu; kodun
+// eklediği kapanış sorusu da hiçbir süzgece uğramıyordu.
+console.log('\nSoru tekrarı — sorulmuş kapanış sorusu bir daha gitmesin')
+
+const SORU_VAKALARI: {
+  ad: string
+  mesajlar: string[]
+  onceki: string
+  sonMusteri: string
+  /** true → çıktıda bu kalıp OLMAMALI, false → KORUNMALI */
+  silinmeli: boolean
+  kalip: RegExp
+  neden: string
+}[] = [
+  {
+    ad: 'Seri sorusu ikinci kez gitmez',
+    mesajlar: ['Kredi kartıyla 3 aya kadar taksit imkanımız var.', 'Hangi seride ilerlemek istersiniz?'],
+    onceki: 'Ön cam için seçeneklerimiz:\n• XPEL XR Blue: 12.000₺\nHangi seride ilerlemek istersiniz?',
+    sonMusteri: '3 taksit seçeneği olabilir',
+    silinmeli: true,
+    kalip: /hangi seride/i,
+    neden: 'Sahada aynı soru üç kez gitti; müşteri seçimini 20:38\'de zaten söylemişti.',
+  },
+  {
+    ad: 'Gün sorusu ikinci kez gitmez',
+    mesajlar: ['Tabii, 3 taksit ile ilerleyebiliriz.', 'Aracınızı hangi gün getirmeyi düşünürsünüz?'],
+    onceki: 'Aracınızı ne zaman getirmeyi düşünürsünüz, ona göre gününüzü ayarlayalım.',
+    sonMusteri: '3 taksit seçeneği olabilir',
+    silinmeli: true,
+    kalip: /hangi gün getirmeyi/i,
+    neden: 'Sahada gün sorusu üç kez gitti (20:33, 20:41, 20:42).',
+  },
+  {
+    ad: 'Müşteri erteledi → gün sorusu ilk kez bile gitmez',
+    mesajlar: ['Tamamdır, tarihiniz netleştiğinde yazmanız yeterli.', 'Aracınızı hangi gün getirmeyi düşünürsünüz?'],
+    onceki: '',
+    sonMusteri: 'Şuan teslim tarihim belli değil tarih aldığım zaman tekrar iletişime geçerim',
+    silinmeli: true,
+    kalip: /hangi gün getirmeyi/i,
+    neden: '"Tarih belli değil" diyen müşteriye gün sormak ısrar.',
+  },
+  {
+    ad: 'İlk kez sorulan seri sorusu korunur',
+    mesajlar: ['Cam filmi seçeneklerimiz:\n• XPEL HP: 11.000₺\n• Global: 7.500₺', 'Hangi seride ilerlemek istersiniz?'],
+    onceki: 'Merhabalar, hoşgeldiniz.',
+    sonMusteri: 'Cam filmi ne kadar',
+    silinmeli: false,
+    kalip: /hangi seride/i,
+    neden: 'İlk soru meşru; yanlış alarm kapanış sorusunu öldürür.',
+  },
+  {
+    ad: 'Müşteri gün verdiyse saat/uygunluk soruları serbest',
+    mesajlar: ['Yarın için hangi saat sizin için uygun olur?'],
+    onceki: 'Aracınızı ne zaman getirmeyi düşünürsünüz?',
+    sonMusteri: 'Yarın getireyim',
+    silinmeli: false,
+    kalip: /hangi saat/i,
+    neden: 'Netleştirme sorusu gün sorusunun tekrarı değil.',
+  },
+]
+
+for (const v of SORU_VAKALARI) {
+  const sonuc = tekrarSorulariAt(v.mesajlar, v.onceki, v.sonMusteri).join('\n')
+  const kaldi = v.kalip.test(sonuc)
+  const dogru = v.silinmeli ? !kaldi : kaldi
+  if (dogru) {
+    gecti += 1
+    console.log(`  ✓ ${v.ad}`)
+  } else {
+    kalanlar.push(v.ad)
+    console.log(`  ✗ ${v.ad} — ${v.silinmeli ? 'soru hâlâ duruyor' : 'soru yanlışlıkla silindi'}`)
+    console.log(`      kaynak: ${v.neden}`)
+  }
+}
+
+// ── Toplam hesabı KODDA (16 Ağustos: "maalesef toplu rakam veremiyoruz") ───
+console.log('\nToplam fiyat — müşteri sorunca kod toplar')
+
+const TOPLAM_VAKALARI: {
+  ad: string
+  mesajlar: string[]
+  sonMusteri: string
+  beklenen: RegExp | null
+  neden: string
+}[] = [
+  {
+    ad: 'Üç kalem → 39.500₺ toplamı eklenir',
+    mesajlar: [
+      '• Seramik kaplama: 17.500₺\n• Global QDP Ceramic cam filmi: 10.000₺\n• XPEL XR Blue ön cam: 12.000₺',
+    ],
+    sonMusteri: 'Toplam fiyat ne kadar oluyor',
+    beklenen: /toplamı 39\.500₺/,
+    neden: 'Sahadaki üçlü: 17.500 + 10.000 + 12.000. Model toplamaz, kod toplar.',
+  },
+  {
+    ad: 'Toplam sorulmadıysa eklenmez',
+    mesajlar: ['• XPEL HP: 11.000₺\n• Global: 7.500₺'],
+    sonMusteri: 'Cam filmi ne kadar',
+    beklenen: null,
+    neden: 'Seri listesi dökümünde toplam anlamsız.',
+  },
+  {
+    ad: '5+ rakam (liste dökümü) → toplam eklenmez',
+    mesajlar: [
+      '• A: 11.000₺\n• B: 7.500₺\n• C: 10.000₺\n• D: 12.000₺\n• E: 17.500₺',
+    ],
+    sonMusteri: 'hepsi toplam ne kadar',
+    beklenen: null,
+    neden: 'Alternatif serilerin toplamı müşteriye yanlış rakam söyler.',
+  },
+]
+
+for (const v of TOPLAM_VAKALARI) {
+  const sonuc = toplamiEkle(v.mesajlar, v.sonMusteri).join('\n')
+  const dogru = v.beklenen ? v.beklenen.test(sonuc) : !/toplamı/i.test(sonuc)
+  if (dogru) {
+    gecti += 1
+    console.log(`  ✓ ${v.ad}`)
+  } else {
+    kalanlar.push(v.ad)
+    console.log(`  ✗ ${v.ad} — çıktı: ${sonuc.slice(-80)}`)
+    console.log(`      kaynak: ${v.neden}`)
+  }
+}
+
+// ── Öksüz tanıtım cümlesi (16 Ağustos: "şöyle:" deyip liste gelmedi) ───────
+console.log('\nÖksüz tanıtım — "şöyle:" deyip listesiz bırakmasın')
+
+const OKSUZ_VAKALARI: { ad: string; mesajlar: string[]; beklenen: number; neden: string }[] = [
+  {
+    ad: 'Vaadi tutulmayan "şöyle:" mesajı düşer',
+    mesajlar: [
+      'Anlıyorum, aracınız şimdiden hayırlı olsun 😊',
+      'Seçtiğiniz kalemlerin fiyatları ayrı ayrı şöyle:',
+      '3 taksit seçeneğimiz mevcut.',
+    ],
+    beklenen: 2,
+    neden: 'Sahada tanıtım cümlesi gitti, ardından liste hiç gelmedi.',
+  },
+  {
+    ad: 'Listesi gelen tanıtım korunur',
+    mesajlar: ['Cam filmi seçeneklerimiz şöyle:', '• XPEL HP Serisi – 11.000₺\n• Global – 7.500₺'],
+    beklenen: 2,
+    neden: 'Vaat tutulmuş; dokunulmaz.',
+  },
+  {
+    ad: 'Sıradan iki nokta kapsam dışı',
+    mesajlar: ['Adresimiz:', 'Eryaman, Ankara'],
+    beklenen: 2,
+    neden: 'Yalnızca liste/fiyat vaat eden tanıtımlara dokunulur.',
+  },
+]
+
+for (const v of OKSUZ_VAKALARI) {
+  const sonuc = oksuzTanitimiAt(v.mesajlar)
+  if (sonuc.length === v.beklenen) {
+    gecti += 1
+    console.log(`  ✓ ${v.ad} — ${sonuc.length} mesaj`)
+  } else {
+    kalanlar.push(v.ad)
+    console.log(`  ✗ ${v.ad} — beklenen ${v.beklenen}, gelen ${sonuc.length} (${v.neden})`)
+  }
+}
+
+const TOPLAM =
+  VAKALAR.length +
+  YERLESIM_VAKALARI.length +
+  ISIM_VAKALARI.length +
+  BASVURU_VAKALARI.length +
+  TEKRAR_VAKALARI.length +
+  SORU_VAKALARI.length +
+  TOPLAM_VAKALARI.length +
+  OKSUZ_VAKALARI.length
 
 console.log(`\n${'─'.repeat(70)}`)
 console.log(`${gecti}/${TOPLAM} kilit doğru davrandı`)
