@@ -208,6 +208,19 @@ const SERI_SORUSU = /hangi\s+seri[^?\n]{0,60}\?/i
 const GUN_SORUSU = /(ne zaman|hangi g[üu]n|hangi tarih)[^.?\n]{0,60}getir|getirmeyi d[üu]ş[üu]n[üu]r/i
 
 /** Müşteri "tarih belli değil / aracı almadım / sonra yazarım" dediyse. */
+/**
+ * Google Haritalar konum bağlantısı — adres cevabının ayrılmaz parçası
+ * (17 Ağustos, İsa: "bu şekilde atsın adresi"). Sahada bot yalnızca yazılı
+ * adresi yazdı; müşteri navigasyona kendisi girmek zorunda kaldı.
+ *
+ * Tek kaynak FIYAT-LISTESI.md; buradaki sabit onun kopyası ve kilit
+ * bunların ayrışmadığını `kilit:dogrula`da sınıyor.
+ */
+export const KONUM_BAGLANTISI = 'https://maps.app.goo.gl/q2yRdcAeFvipV4Hk8?g_st=ic'
+
+/** Cevapta işletme adresi geçiyor mu (bağlantı zorunluluğunun tetikleyicisi). */
+const ADRES_KALIBI = /aya[şs]\s*ankara\s*yolu|no\s*:?\s*368|etimesgut/i
+
 const ERTELEME_KALIBI =
   /belli değil|belli olmadı|teslim alma|daha almadım|henüz almadım|sonra (tekrar )?(yazar|iletişime|döner)|netleş|karar ver(ince|diğimde|eyim)/i
 
@@ -333,7 +346,28 @@ export function sonRotus(
 ): string[] {
   let sonuc = oksuzTanitimiAt(mesajlar)
   sonuc = tekrarSorulariAt(sonuc, baglam.oncekiBotMetni ?? '', baglam.sonMusteriMetni ?? '')
+  sonuc = konumBaglantisiEkle(sonuc)
   return toplamiEkle(sonuc, baglam.sonMusteriMetni ?? '')
+}
+
+/**
+ * Adres yazıldıysa konum bağlantısını da ekler. Model unutursa diye kodda:
+ * tek satırlık sabit metin için düzeltme turu koşmak (40+ sn, para) anlamsız.
+ * Bağlantı zaten cevapta varsa dokunulmaz.
+ */
+export function konumBaglantisiEkle(mesajlar: string[]): string[] {
+  const tumMetin = mesajlar.join('\n')
+  if (!ADRES_KALIBI.test(tumMetin)) return mesajlar
+  if (tumMetin.includes('maps.app.goo.gl')) return mesajlar
+
+  // Bağlantı adresin GEÇTİĞİ mesajın sonuna girer; ayrı balon yapmak
+  // "en fazla 2 balon" kuralını gereksiz yere zorluyor.
+  const indeks = mesajlar.findIndex((m) => ADRES_KALIBI.test(m))
+  if (indeks === -1) return mesajlar
+
+  const kopya = [...mesajlar]
+  kopya[indeks] = `${kopya[indeks].trim()}\nKonum: ${KONUM_BAGLANTISI}`
+  return kopya
 }
 
 /**

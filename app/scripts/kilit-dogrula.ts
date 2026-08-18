@@ -12,10 +12,15 @@
 //
 // Çalıştır: npx tsx scripts/kilit-dogrula.ts
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import {
   eksikleriBul,
   hazirListeyiYerlestir,
   ilkAd,
+  konumBaglantisiEkle,
+  KONUM_BAGLANTISI,
   oksuzTanitimiAt,
   tekrarSorulariAt,
   toplamiEkle,
@@ -787,7 +792,62 @@ for (const v of OKSUZ_VAKALARI) {
   }
 }
 
+// ── Konum bağlantısı (17 Ağustos, İsa: "bu şekilde atsın adresi") ──────────
+// Sahada bot yalnızca yazılı adresi verdi; müşteri navigasyona kendi yazacaktı.
+console.log('\nKonum bağlantısı — adres verilince harita linki de gitsin')
+
+const KONUM_VAKALARI: { ad: string; mesajlar: string[]; beklenen: boolean; neden: string }[] = [
+  {
+    ad: 'Sahadaki adres cevabına link eklenir',
+    mesajlar: [
+      'Merhabalar Temel bey, hoşgeldiniz. Adresimiz Eryaman, Ayaş Ankara Yolu Blv. No:368, Etimesgut / Ankara.',
+    ],
+    beklenen: true,
+    neden: 'Birebir sahadaki cevap; link yoktu.',
+  },
+  {
+    ad: 'Link zaten varsa ikinci kez eklenmez',
+    mesajlar: [`Adresimiz Etimesgut / Ankara.\nKonum: ${KONUM_BAGLANTISI}`],
+    beklenen: true,
+    neden: 'Tekrar eklenirse aynı link iki kez gider.',
+  },
+  {
+    ad: 'Adres geçmeyen cevaba link eklenmez',
+    mesajlar: ['Komple PPF kaplamada XPEL Xtreme 100.000₺.'],
+    beklenen: false,
+    neden: 'Yanlış alarm fiyat cevabına alakasız link sokar.',
+  },
+]
+
+for (const v of KONUM_VAKALARI) {
+  const cikti = konumBaglantisiEkle(v.mesajlar).join('\n')
+  const linkSayisi = cikti.split(KONUM_BAGLANTISI).length - 1
+  const dogru = v.beklenen ? linkSayisi === 1 : linkSayisi === 0
+  if (dogru) {
+    gecti += 1
+    console.log(`  ✓ ${v.ad}`)
+  } else {
+    kalanlar.push(v.ad)
+    console.log(`  ✗ ${v.ad} — link ${linkSayisi} kez geçti (${v.neden})`)
+  }
+}
+
+// Koddaki sabit ile bilgi tabanı ayrışmasın: tek karar iki yerde yazılıysa
+// ikisinin çelişmediği SINANIR (CLAUDE.md'nin en çok tekrarlanan dersi).
+{
+  const liste = readFileSync(join(process.cwd(), '..', 'FIYAT-LISTESI.md'), 'utf8')
+  if (liste.includes(KONUM_BAGLANTISI)) {
+    gecti += 1
+    console.log('  ✓ Koddaki konum bağlantısı FIYAT-LISTESI.md ile aynı')
+  } else {
+    kalanlar.push('konum bağlantısı kod ↔ FIYAT-LISTESI.md ayrışması')
+    console.log('  ✗ Koddaki link FIYAT-LISTESI.md\'de YOK — biri güncellenmiş, diğeri kalmış')
+  }
+}
+
 const TOPLAM =
+  1 + // konum bağlantısı kaynak eşitliği
+  KONUM_VAKALARI.length +
   VAKALAR.length +
   YERLESIM_VAKALARI.length +
   ISIM_VAKALARI.length +

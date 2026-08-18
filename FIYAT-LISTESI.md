@@ -256,6 +256,10 @@ değişmedi.
 - **Ödeme:** kredi kartı var, **3 aya kadar taksit**
 - **Teknik kısıt:** tek taraf cam filmi yapılmıyor (renk tonu farkı), sağ-sol birlikte değişmeli
 - **Adres:** Eryaman, Ayaş Ankara Yolu Blv. No:368, Etimesgut / Ankara
+- **Konum bağlantısı (Google Haritalar):** https://maps.app.goo.gl/q2yRdcAeFvipV4Hk8?g_st=ic
+  ⚠ Adres sorulduğunda bağlantı DA gönderilir (17 Ağustos 2026, İsa: "bu şekilde
+  atsın adresi"). Yazılı adres tek başına yetmiyor; müşteri navigasyona kendi
+  yazmak zorunda kalıyordu. Bağlantı olduğu gibi, kısaltmadan yazılır.
 
 ### Verdiğimiz hizmetlerin tam listesi (eryamangaraj.com)
 
